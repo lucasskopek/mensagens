@@ -93,3 +93,29 @@ Stage Summary:
 - All endpoints verified: /api/auth, /api/messages/generate, /api/messages/send, /api/whatsapp/status
 - App auto-redirects logged-in users to dashboard on page load
 
+---
+Task ID: 4
+Agent: Main
+Task: Fix scheduled message auto-sending and add 365-day automatic scheduling UI
+
+Work Log:
+- Created mini-services/scheduler/ — background service on port 3002
+- Scheduler runs every 60 seconds, checks all active schedules against current time (America/Sao_Paulo)
+- For matching schedules: generates AI message → sends via Z-API → saves to MessageHistory
+- Duplicate prevention: checks if message was sent in last 5 minutes for same contact
+- Verified scheduler works: sent message via Z-API at 17:26 with messageId 34B66069FD2B2141876C
+- Updated frontend: schedule section now shows "Agendamentos Automáticos" with "365 dias/ano" label
+- Added green "🔔 Automático" badge and "Servidor Ativo" indicator with pulse animation
+- "Agendar Automático" button (green, prominent) to create new automatic schedules
+- CreateScheduleDialog now shows green banner: "Envio automático 365 dias por ano"
+- Button text: "Ativar Envio Automático" with success toast "Agendamento automático ativado! 365 dias/ano"
+- Schedule cards show: style badges, times/day, send times, "365 dias/ano" in green
+- Active schedules have green left border; paused schedules show "Pausado" badge
+
+Stage Summary:
+- Scheduler service running on port 3002, checking every 60 seconds
+- Messages are sent automatically at configured times via Z-API
+- UI clearly communicates "365 dias por ano" automatic sending
+- Health check: http://localhost:3002/health
+- Manual trigger: http://localhost:3002/trigger
+

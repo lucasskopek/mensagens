@@ -893,7 +893,7 @@ function CreateScheduleDialog({
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      toast.success('Agendamento criado com sucesso! 📅');
+      toast.success('Agendamento automático ativado! 365 dias/ano 📅✨');
       onOpenChange(false);
       resetForm();
       onSuccess();
@@ -917,10 +917,15 @@ function CreateScheduleDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-burgundy" />
-            Criar Agendamento
+            Agendar Envio Automático
           </DialogTitle>
-          <DialogDescription>Configure o envio automático de mensagens para um contato</DialogDescription>
+          <DialogDescription>Configure o envio automático de mensagens 365 dias por ano</DialogDescription>
         </DialogHeader>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-1">
+          <p className="font-medium flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Envio automático 365 dias por ano</p>
+          <p className="text-green-700 text-xs mt-0.5">As mensagens serão geradas por IA e enviadas via WhatsApp automaticamente nos horários que você definir. Basta criar o agendamento uma única vez!</p>
+        </div>
 
         <div className="space-y-5 py-3">
           {/* Contact Selection */}
@@ -1006,7 +1011,7 @@ function CreateScheduleDialog({
             disabled={loading || !contactId || selectedStyles.length === 0}
             className="bg-burgundy hover:bg-burgundy-dark text-white"
           >
-            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Criar Agendamento</>}
+            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Ativar Envio Automático</>}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1144,8 +1149,8 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
         </div>
         <div className="flex gap-2">
           {contacts.length > 0 && (
-            <Button onClick={() => setShowCreateSchedule(true)} variant="outline" className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
-              <CalendarDays className="w-4 h-4 mr-2" /> Agendar
+            <Button onClick={() => setShowCreateSchedule(true)} className="bg-green-600 hover:bg-green-700 text-white">
+              <CalendarDays className="w-4 h-4 mr-2" /> Agendar Automático
             </Button>
           )}
           <Button onClick={() => setShowAddContact(true)} className="bg-burgundy hover:bg-burgundy-dark text-white">
@@ -1262,32 +1267,62 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
       {/* Active Schedules */}
       {schedules.length > 0 && (
         <div className="mt-8">
-          <h3 className="text-lg font-bold text-graphite mb-4">Agendamentos Ativos</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-graphite flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-burgundy" />
+                Agendamentos Automáticos
+              </h3>
+              <p className="text-sm text-graphite-muted">Envio automático 365 dias por ano nos horários configurados</p>
+            </div>
+            <Badge className="bg-green-100 text-green-700 border-green-200">
+              <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5 animate-pulse" />
+              Servidor Ativo
+            </Badge>
+          </div>
           <div className="space-y-3">
             {schedules.map((s) => (
-              <Card key={s.id} className={`border-burgundy/10 ${!s.active ? 'opacity-50' : ''}`}>
+              <Card key={s.id} className={`border-burgundy/10 ${!s.active ? 'opacity-50' : 'border-l-4 border-l-green-500'}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1.5">
                         <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
                           <UserIcon className="w-4 h-4 text-burgundy" />
                         </div>
                         <p className="font-semibold text-graphite truncate">{s.contactName}</p>
-                        <div className="flex gap-1 flex-wrap">
-                          {s.messageStyles.map((st: string) => (
-                            <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
-                              {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
-                            </Badge>
-                          ))}
-                        </div>
+                        {s.active && (
+                          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                            🔔 Automático
+                          </Badge>
+                        )}
+                        {!s.active && (
+                          <Badge variant="secondary" className="text-xs">Pausado</Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-graphite-muted ml-10">
-                        <Clock className="w-3.5 h-3.5 inline mr-1" />
-                        {s.timesPerDay}x ao dia · {s.sendTimes.join(', ')}
-                      </p>
+                      <div className="flex gap-1 flex-wrap ml-10 mb-2">
+                        {s.messageStyles.map((st: string) => (
+                          <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
+                            {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="ml-10 flex items-center gap-4 text-sm text-graphite-muted">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {s.timesPerDay}x ao dia
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          {s.sendTimes.join(', ')}
+                        </span>
+                        <span className="flex items-center gap-1 text-green-600">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          365 dias/ano
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-3">
+                    <div className="flex items-center gap-2 ml-3 pt-1">
                       <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
                       <Button variant="ghost" size="sm" onClick={() => deleteSchedule(s.id)} className="text-graphite-muted hover:text-destructive">
                         <Trash2 className="w-4 h-4" />
