@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Heart, MessageCircle, Clock, User, Settings, LogOut, Plus, Trash2, Send,
+  Heart, MessageCircle, Clock, User as UserIcon, Settings, LogOut, Plus, Trash2, Send,
   Check, X, ChevronRight, Zap, Shield, Crown, Sparkles, Eye, EyeOff,
   ChevronLeft, Info, Gift, ArrowRight, Phone, Mail, Lock,
   Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays
@@ -118,7 +118,7 @@ function LandingPage() {
           </div>
           <nav className="flex items-center gap-2 sm:gap-4">
             <Button variant="ghost" onClick={() => setView('auth')} className="text-graphite hover:text-burgundy hover:bg-burgundy-50">
-              <User className="w-4 h-4 sm:mr-2" />
+              <UserIcon className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Entrar</span>
             </Button>
             <Button
@@ -449,7 +449,7 @@ function AuthPage() {
                 <div>
                   <Label htmlFor="name">Nome Completo</Label>
                   <div className="relative mt-1.5">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
                     <Input id="name" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" />
                   </div>
                 </div>
@@ -1309,7 +1309,7 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-burgundy/10 flex items-center justify-center">
-                      <User className="w-5 h-5 text-burgundy" />
+                      <UserIcon className="w-5 h-5 text-burgundy" />
                     </div>
                     <div>
                       <p className="font-semibold text-graphite">{contact.name}</p>
@@ -1373,7 +1373,7 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
-                          <User className="w-4 h-4 text-burgundy" />
+                          <UserIcon className="w-4 h-4 text-burgundy" />
                         </div>
                         <p className="font-semibold text-graphite truncate">{s.contactName}</p>
                         <div className="flex gap-1 flex-wrap">
@@ -1440,7 +1440,7 @@ function HistoryTab({ history }: { history: MessageHistory[] }) {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
-                      <User className="w-4 h-4 text-burgundy" />
+                      <UserIcon className="w-4 h-4 text-burgundy" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium text-graphite truncate">{msg.contactName}</p>
@@ -1649,6 +1649,23 @@ function SettingsTab({ userId }: { userId: string }) {
 /* ─────────────────── MAIN PAGE ─────────────────── */
 export default function HomePage() {
   const { currentView } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Heart className="w-10 h-10 text-burgundy animate-pulse-heart" fill="#722F37" />
+          <p className="text-graphite-muted text-sm">Carregando WhatsRomance...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence mode="wait">
