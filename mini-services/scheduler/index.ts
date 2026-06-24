@@ -5,7 +5,7 @@
  * if any scheduled messages need to be sent.
  */
 
-const NEXTJS_URL = 'http://localhost:3000';
+const NEXTJS_URL = 'http://127.0.0.1:3000';
 const CHECK_INTERVAL_MS = 60_000; // 1 minute
 
 async function tick() {
