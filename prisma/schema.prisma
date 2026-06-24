@@ -61,6 +61,9 @@ model Schedule {
   messageStyles String   // JSON array of styles: romantic,spicy,playful,serious
   timesPerDay   Int      @default(1)
   sendTimes     String   // JSON array of times: ["08:00","14:00","20:00"]
+  recurring     Boolean  @default(true)  // true = 365 dias/ano, false = datas especificas
+  selectedDates String   @default("[]") // JSON array of dates: ["2025-01-15","2025-02-14"]
+  executionLog  String   @default("[]") // JSON array of executed slots: ["2025-01-15|08:00", ...]
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

@@ -1,0 +1,1669 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { toast } from 'sonner';
+     6→import { useAppStore } from '@/lib/store';
+     7→import type { AppView, Contact, Schedule, MessageHistory, MessageStyle, User, UserConfig } from '@/lib/types';
+     8→import { MESSAGE_STYLES, PRICING_PLANS } from '@/lib/types';
+     9→
+    10→import { Button } from '@/components/ui/button';
+    11→import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+    12→import { Input } from '@/components/ui/input';
+    13→import { Label } from '@/components/ui/label';
+    14→import { Badge } from '@/components/ui/badge';
+    15→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    16→import { Switch } from '@/components/ui/switch';
+    17→import { Separator } from '@/components/ui/separator';
+    18→import { ScrollArea } from '@/components/ui/scroll-area';
+    19→import { Checkbox } from '@/components/ui/checkbox';
+    20→import { Skeleton } from '@/components/ui/skeleton';
+    21→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    22→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    23→import {
+    24→  Heart, MessageCircle, Clock, User as UserIcon, Settings, LogOut, Plus, Trash2, Send,
+    25→  Check, X, ChevronRight, Crown, Sparkles, Eye, EyeOff,
+    26→  ChevronLeft, Info, Gift, ArrowRight, Phone, Mail, Lock,
+    27→  Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays
+    28→} from 'lucide-react';
+    29→
+    30→const pageVariants = {
+    31→  initial: { opacity: 0, y: 20 },
+    32→  animate: { opacity: 1, y: 0 },
+    33→  exit: { opacity: 0, y: -20 },
+    34→};
+    35→
+    36→const stagger = {
+    37→  animate: { transition: { staggerChildren: 0.08 } },
+    38→};
+    39→
+    40→const fadeUp = {
+    41→  initial: { opacity: 0, y: 20 },
+    42→  animate: { opacity: 1, y: 0 },
+    43→};
+    44→
+    45→function formatPhone(value: string): string {
+    46→  const digits = value.replace(/\D/g, '').slice(0, 11);
+    47→  if (digits.length <= 2) return `(${digits}`;
+    48→  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    49→  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    50→}
+    51→
+    52→function parsePhoneToDigits(value: string): string {
+    53→  return value.replace(/\D/g, '');
+    54→}
+    55→
+    56→const styleLabels: Record<MessageStyle, string> = {
+    57→  romantic: 'Romântica',
+    58→  spicy: 'Apimentada',
+    59→  playful: 'Brincalhona',
+    60→  serious: 'Séria',
+    61→};
+    62→
+    63→const styleEmojis: Record<MessageStyle, string> = {
+    64→  romantic: '💕',
+    65→  spicy: '🔥',
+    66→  playful: '😊',
+    67→  serious: '🤝',
+    68→};
+    69→
+    70→/* ─────────────────── LANDING PAGE ─────────────────── */
+    71→function LandingPage() {
+    72→  const { setView, setShowPricing, showPricing } = useAppStore();
+    73→  const [userName, setUserName] = useState('');
+    74→  const [contactName, setContactName] = useState('');
+    75→  const [contactPhone, setContactPhone] = useState('');
+    76→  const [sendTime, setSendTime] = useState('08:00');
+    77→  const [style, setStyle] = useState<MessageStyle>('romantic');
+    78→  const [loading, setLoading] = useState(false);
+    79→  const [generatedMsg, setGeneratedMsg] = useState('');
+    80→  const [showResult, setShowResult] = useState(false);
+    81→
+    82→  const handleFreeTest = async () => {
+    83→    if (!userName || !contactName || !contactPhone) {
+    84→      toast.error('Preencha todos os campos obrigatórios');
+    85→      return;
+    86→    }
+    87→    if (parsePhoneToDigits(contactPhone).length < 10) {
+    88→      toast.error('Insira um número de WhatsApp válido');
+    89→      return;
+    90→    }
+    91→    setLoading(true);
+    92→    try {
+    93→      const res = await fetch('/api/free-test', {
+    94→        method: 'POST',
+    95→        headers: { 'Content-Type': 'application/json' },
+    96→        body: JSON.stringify({ userName, contactName, contactPhone, sendTime, style }),
+    97→      });
+    98→      const data = await res.json();
+    99→      if (data.error) throw new Error(data.error);
+   100→      setGeneratedMsg(data.message);
+   101→      setShowResult(true);
+   102→      toast.success('Mensagem gerada com sucesso! Seu amor vai adorar! ❤️');
+   103→    } catch (err) {
+   104→      toast.error(err instanceof Error ? err.message : 'Erro ao gerar mensagem');
+   105→    } finally {
+   106→      setLoading(false);
+   107→    }
+   108→  };
+   109→
+   110→  return (
+   111→    <div className="min-h-screen flex flex-col">
+   112→      {/* Header */}
+   113→      <header className="sticky top-0 z-50 glass-burgundy">
+   114→        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+   115→          <div className="flex items-center gap-2">
+   116→            <Heart className="w-7 h-7 text-burgundy animate-pulse-heart" fill="#722F37" />
+   117→            <span className="text-xl font-bold text-gradient-burgundy">WhatsRomance</span>
+   118→          </div>
+   119→          <nav className="flex items-center gap-2 sm:gap-4">
+   120→            <Button variant="ghost" onClick={() => setView('auth')} className="text-graphite hover:text-burgundy hover:bg-burgundy-50">
+   121→              <UserIcon className="w-4 h-4 sm:mr-2" />
+   122→              <span className="hidden sm:inline">Entrar</span>
+   123→            </Button>
+   124→            <Button
+   125→              onClick={() => document.getElementById('free-test')?.scrollIntoView({ behavior: 'smooth' })}
+   126→              className="bg-burgundy hover:bg-burgundy-dark text-white"
+   127→            >
+   128→              <Gift className="w-4 h-4 mr-2" />
+   129→              Teste Grátis
+   130→            </Button>
+   131→          </nav>
+   132→        </div>
+   133→      </header>
+   134→
+   135→      <main className="flex-1">
+   136→        {/* Hero */}
+   137→        <section className="relative overflow-hidden py-16 sm:py-24 lg:py-32">
+   138→          <div className="absolute inset-0 bg-gradient-to-b from-burgundy-50 via-rose-pastel-light to-background" />
+   139→          <div className="absolute top-20 left-10 text-burgundy-100 text-6xl opacity-30 animate-float">💕</div>
+   140→          <div className="absolute top-40 right-20 text-burgundy-100 text-5xl opacity-20 animate-float" style={{ animationDelay: '1s' }}>❤️</div>
+   141→          <div className="absolute bottom-20 left-1/4 text-burgundy-100 text-4xl opacity-25 animate-float" style={{ animationDelay: '2s' }}>🌹</div>
+   142→
+   143→          <div className="relative max-w-4xl mx-auto px-4 text-center">
+   144→            <motion.div variants={stagger} initial="initial" animate="animate">
+   145→              <motion.div variants={fadeUp}>
+   146→                <Badge className="mb-6 bg-burgundy/10 text-burgundy border-burgundy/20 hover:bg-burgundy/15 px-4 py-1.5 text-sm">
+   147→                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+   148→                  IA Especialista em Relacionamentos
+   149→                </Badge>
+   150→              </motion.div>
+   151→
+   152→              <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-bold text-graphite leading-tight mb-6">
+   153→                Deixe que nossa IA cuide do{' '}
+   154→                <span className="text-gradient-burgundy">romance</span> por você.
+   155→              </motion.h1>
+   156→
+   157→              <motion.p variants={fadeUp} className="text-lg sm:text-xl text-graphite-muted max-w-2xl mx-auto mb-10">
+   158→                Mensagens únicas, automatizadas e personalizadas para o seu amor,{' '}
+   159→                <strong className="text-graphite">365 dias por ano.</strong>
+   160→              </motion.p>
+   161→
+   162→              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center">
+   163→                <Button
+   164→                  size="lg"
+   165→                  onClick={() => document.getElementById('free-test')?.scrollIntoView({ behavior: 'smooth' })}
+   166→                  className="bg-burgundy hover:bg-burgundy-dark text-white text-lg px-8 py-6 rounded-xl shadow-lg shadow-burgundy/20"
+   167→                >
+   168→                  <Gift className="w-5 h-5 mr-2" />
+   169→                  Teste Grátis Agora
+   170→                </Button>
+   171→                <Button
+   172→                  size="lg"
+   173→                  variant="outline"
+   174→                  onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+   175→                  className="border-burgundy/30 text-burgundy hover:bg-burgundy-50 text-lg px-8 py-6 rounded-xl"
+   176→                >
+   177→                  <CreditCard className="w-5 h-5 mr-2" />
+   178→                  Ver Planos
+   179→                </Button>
+   180→              </motion.div>
+   181→
+   182→              <motion.div variants={fadeUp} className="mt-12 flex flex-wrap justify-center gap-6 text-sm text-graphite-muted">
+   183→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Mensagens 100% únicas</div>
+   184→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Anti-repetição IA</div>
+   185→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> 4 estilos disponíveis</div>
+   186→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Agendamento fácil</div>
+   187→              </motion.div>
+   188→            </motion.div>
+   189→          </div>
+   190→        </section>
+   191→
+   192→        {/* Free Test Section */}
+   193→        <section id="free-test" className="py-16 sm:py-24">
+   194→          <div className="max-w-2xl mx-auto px-4">
+   195→            <motion.div
+   196→              initial={{ opacity: 0, y: 30 }}
+   197→              whileInView={{ opacity: 1, y: 0 }}
+   198→              viewport={{ once: true }}
+   199→              transition={{ duration: 0.5 }}
+   200→            >
+   201→              <Card className="shadow-xl border-burgundy/10 overflow-hidden">
+   202→                <CardHeader className="bg-gradient-to-r from-burgundy to-burgundy-light text-white text-center pb-6">
+   203→                  <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+   204→                    <Gift className="w-7 h-7" />
+   205→                  </div>
+   206→                  <CardTitle className="text-2xl">Teste Grátis</CardTitle>
+   207→                  <CardDescription className="text-white/80">
+   208→                    Veja a mágica acontecer — sem compromisso
+   209→                  </CardDescription>
+   210→                </CardHeader>
+   211→                <CardContent className="p-6 space-y-4">
+   212→                  {showResult ? (
+   213→                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+   214→                      <div className="text-center mb-4">
+   215→                        <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+   216→                        <h3 className="font-semibold text-lg text-graphite">Mensagem Gerada!</h3>
+   217→                        <p className="text-sm text-graphite-muted">Veja como a IA criou algo especial:</p>
+   218→                      </div>
+   219→                      <div className="bg-rose-pastel-light rounded-lg p-4 border border-burgundy/10">
+   220→                        <p className="text-graphite leading-relaxed whitespace-pre-wrap">{generatedMsg}</p>
+   221→                      </div>
+   222→                      <div className="flex flex-col sm:flex-row gap-3">
+   223→                        <Button onClick={() => { setShowResult(false); setGeneratedMsg(''); }} variant="outline" className="flex-1">
+   224→                          <RefreshCw className="w-4 h-4 mr-2" /> Gerar Outra
+   225→                        </Button>
+   226→                        <Button onClick={() => { setShowPricing(true); setView('landing'); setTimeout(() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white">
+   227→                          <ArrowRight className="w-4 h-4 mr-2" /> Ver Planos
+   228→                        </Button>
+   229→                      </div>
+   230→                    </motion.div>
+   231→                  ) : (
+   232→                    <div className="space-y-4">
+   233→                      <div>
+   234→                        <Label htmlFor="userName">Seu Nome *</Label>
+   235→                        <Input id="userName" placeholder="Como você se chama?" value={userName} onChange={(e) => setUserName(e.target.value)} className="mt-1.5" />
+   236→                      </div>
+   237→                      <div>
+   238→                        <Label htmlFor="contactName">Nome do seu Amor *</Label>
+   239→                        <Input id="contactName" placeholder="O nome de quem vai receber" value={contactName} onChange={(e) => setContactName(e.target.value)} className="mt-1.5" />
+   240→                      </div>
+   241→                      <div>
+   242→                        <Label htmlFor="contactPhone">WhatsApp do Destinatário *</Label>
+   243→                        <div className="relative mt-1.5">
+   244→                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   245→                          <Input id="contactPhone" placeholder="(11) 99999-9999" value={contactPhone} onChange={(e) => setContactPhone(formatPhone(e.target.value))} className="pl-10" />
+   246→                        </div>
+   247→                      </div>
+   248→                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   249→                        <div>
+   250→                          <Label htmlFor="sendTime">Horário de Disparo</Label>
+   251→                          <div className="relative mt-1.5">
+   252→                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   253→                            <Input id="sendTime" type="time" value={sendTime} onChange={(e) => setSendTime(e.target.value)} className="pl-10" />
+   254→                          </div>
+   255→                        </div>
+   256→                        <div>
+   257→                          <Label>Tom da Mensagem</Label>
+   258→                          <Select value={style} onValueChange={(v) => setStyle(v as MessageStyle)}>
+   259→                            <SelectTrigger className="mt-1.5">
+   260→                              <SelectValue />
+   261→                            </SelectTrigger>
+   262→                            <SelectContent>
+   263→                              {MESSAGE_STYLES.map((s) => (
+   264→                                <SelectItem key={s.value} value={s.value}>
+   265→                                  {s.emoji} {s.label}
+   266→                                </SelectItem>
+   267→                              ))}
+   268→                            </SelectContent>
+   269→                          </Select>
+   270→                        </div>
+   271→                      </div>
+   272→                      <Button
+   273→                        onClick={handleFreeTest}
+   274→                        disabled={loading}
+   275→                        className="w-full bg-burgundy hover:bg-burgundy-dark text-white py-6 text-lg rounded-xl shadow-lg shadow-burgundy/20"
+   276→                      >
+   277→                        {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Gerando...</> : <><Send className="w-5 h-5 mr-2" /> Agendar Mensagem Grátis</>}
+   278→                      </Button>
+   279→                    </div>
+   280→                  )}
+   281→                </CardContent>
+   282→              </Card>
+   283→            </motion.div>
+   284→          </div>
+   285→        </section>
+   286→
+   287→        {/* Pricing Section */}
+   288→        <section id="pricing" className="py-16 sm:py-24 bg-gradient-to-b from-background via-burgundy-50/50 to-background">
+   289→          <div className="max-w-6xl mx-auto px-4">
+   290→            <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
+   291→              <h2 className="text-3xl sm:text-4xl font-bold text-graphite mb-4">
+   292→                Escolha o Plano <span className="text-gradient-burgundy">Perfeito</span>
+   293→              </h2>
+   294→              <p className="text-graphite-muted max-w-xl mx-auto">
+   295→                Comece com o teste grátis. Depois, escolha o plano que melhor se adapta à sua relação.
+   296→              </p>
+   297→            </motion.div>
+   298→
+   299→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+   300→              {PRICING_PLANS.map((plan, i) => (
+   301→                <motion.div
+   302→                  key={plan.id}
+   303→                  initial={{ opacity: 0, y: 30 }}
+   304→                  whileInView={{ opacity: 1, y: 0 }}
+   305→                  viewport={{ once: true }}
+   306→                  transition={{ delay: i * 0.1 }}
+   307→                >
+   308→                  <Card className={`relative h-full flex flex-col ${plan.popular ? 'border-2 border-burgundy shadow-xl shadow-burgundy/10' : 'border-burgundy/10'} hover:shadow-lg transition-shadow`}>
+   309→                    {plan.popular && (
+   310→                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+   311→                        <Badge className="bg-burgundy text-white px-3 py-1 shadow-md">
+   312→                          <Crown className="w-3 h-3 mr-1" /> Melhor Valor
+   313→                        </Badge>
+   314→                      </div>
+   315→                    )}
+   316→                    <CardHeader className="pb-3">
+   317→                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+   318→                      <CardDescription className="text-xs">{plan.period}</CardDescription>
+   319→                    </CardHeader>
+   320→                    <CardContent className="flex-1 space-y-4">
+   321→                      <div>
+   322→                        <span className="text-3xl font-bold text-graphite">{plan.totalPrice}</span>
+   323→                        {plan.credits > 0 && (
+   324→                          <p className="text-sm text-graphite-muted mt-1">{plan.credits} mensagens incluídas</p>
+   325→                        )}
+   326→                        <p className="text-sm font-medium text-burgundy mt-1">
+   327→                          R$ {plan.pricePerMsg.toFixed(2).replace('.', ',')} por mensagem
+   328→                        </p>
+   329→                      </div>
+   330→                      <Separator />
+   331→                      <ul className="space-y-2">
+   332→                        {plan.features.map((f) => (
+   333→                          <li key={f} className="flex items-start gap-2 text-sm text-graphite-muted">
+   334→                            <Check className="w-4 h-4 text-burgundy mt-0.5 shrink-0" />
+   335→                            {f}
+   336→                          </li>
+   337→                        ))}
+   338→                      </ul>
+   339→                    </CardContent>
+   340→                    <CardFooter>
+   341→                      <Button
+   342→                        className={`w-full ${plan.popular ? 'bg-burgundy hover:bg-burgundy-dark text-white' : 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'}`}
+   343→                        onClick={() => setView('auth')}
+   344→                      >
+   345→                        {plan.id === 'avulso' ? 'Recarregar' : 'Assinar Agora'}
+   346→                        <ChevronRight className="w-4 h-4 ml-1" />
+   347→                      </Button>
+   348→                    </CardFooter>
+   349→                  </Card>
+   350→                </motion.div>
+   351→              ))}
+   352→            </div>
+   353→          </div>
+   354→        </section>
+   355→      </main>
+   356→
+   357→      {/* Footer */}
+   358→      <footer className="mt-auto border-t border-burgundy/10 bg-white py-8">
+   359→        <div className="max-w-7xl mx-auto px-4 text-center">
+   360→          <div className="flex items-center justify-center gap-2 mb-3">
+   361→            <Heart className="w-5 h-5 text-burgundy" fill="#722F37" />
+   362→            <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
+   363→          </div>
+   364→          <p className="text-sm text-graphite-muted">
+   365→            &copy; 2025 WhatsRomance. Todos os direitos reservados.
+   366→          </p>
+   367→          <p className="text-xs text-graphite-muted/60 mt-2">
+   368→            Feito com ❤️ para fortalecer relacionamentos
+   369→          </p>
+   370→        </div>
+   371→      </footer>
+   372→    </div>
+   373→  );
+   374→}
+   375→
+   376→/* ─────────────────── AUTH PAGE ─────────────────── */
+   377→function AuthPage() {
+   378→  const { setView, setUser, user } = useAppStore();
+   379→  const [mode, setMode] = useState<'login' | 'register'>('login');
+   380→  const [name, setName] = useState('');
+   381→  const [email, setEmail] = useState('');
+   382→  const [password, setPassword] = useState('');
+   383→  const [whatsapp, setWhatsapp] = useState('');
+   384→  const [showPass, setShowPass] = useState(false);
+   385→  const [loading, setLoading] = useState(false);
+   386→
+   387→  const handleSubmit = async (e: React.FormEvent) => {
+   388→    e.preventDefault();
+   389→    if (!email || !password) {
+   390→      toast.error('Preencha todos os campos obrigatórios');
+   391→      return;
+   392→    }
+   393→    if (mode === 'register' && !name) {
+   394→      toast.error('Nome é obrigatório para cadastro');
+   395→      return;
+   396→    }
+   397→    setLoading(true);
+   398→    try {
+   399→      const res = await fetch('/api/auth', {
+   400→        method: 'POST',
+   401→        headers: { 'Content-Type': 'application/json' },
+   402→        body: JSON.stringify({ name, email, password, whatsapp: parsePhoneToDigits(whatsapp) || undefined }),
+   403→      });
+   404→      const data = await res.json();
+   405→      if (data.error) throw new Error(data.error);
+   406→
+   407→      const userData: User = {
+   408→        id: data.id,
+   409→        name: data.name,
+   410→        email: data.email,
+   411→        whatsapp: data.whatsapp,
+   412→        isDev: data.isDev,
+   413→        credits: data.credits,
+   414→        createdAt: data.createdAt,
+   415→      };
+   416→      setUser(userData);
+   417→
+   418→      if (data.isDev) {
+   419→        toast.success('Modo Desenvolvedor ativado! Créditos ilimitados. 👑');
+   420→        setView('dashboard');
+   421→      } else {
+   422→        toast.success(`Bem-vindo(a), ${data.name}! 💕`);
+   423→        setView('onboarding');
+   424→      }
+   425→    } catch (err) {
+   426→      toast.error(err instanceof Error ? err.message : 'Erro ao fazer login');
+   427→    } finally {
+   428→      setLoading(false);
+   429→    }
+   430→  };
+   431→
+   432→  return (
+   433→    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-burgundy-50 via-rose-pastel-light to-background px-4 py-12">
+   434→      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+   435→        <Card className="shadow-xl border-burgundy/10">
+   436→          <CardHeader className="text-center pb-2">
+   437→            <div className="mx-auto w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mb-3">
+   438→              <Heart className="w-7 h-7 text-burgundy" fill="#722F37" />
+   439→            </div>
+   440→            <CardTitle className="text-2xl text-gradient-burgundy">WhatsRomance</CardTitle>
+   441→            <CardDescription>Entre na sua conta ou crie uma nova</CardDescription>
+   442→          </CardHeader>
+   443→          <CardContent>
+   444→            <Tabs value={mode} onValueChange={(v) => setMode(v as 'login' | 'register')} className="mb-6">
+   445→              <TabsList className="grid w-full grid-cols-2">
+   446→                <TabsTrigger value="login">Entrar</TabsTrigger>
+   447→                <TabsTrigger value="register">Cadastrar</TabsTrigger>
+   448→              </TabsList>
+   449→            </Tabs>
+   450→
+   451→            <form onSubmit={handleSubmit} className="space-y-4">
+   452→              {mode === 'register' && (
+   453→                <div>
+   454→                  <Label htmlFor="name">Nome Completo</Label>
+   455→                  <div className="relative mt-1.5">
+   456→                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   457→                    <Input id="name" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" />
+   458→                  </div>
+   459→                </div>
+   460→              )}
+   461→              <div>
+   462→                <Label htmlFor="email">E-mail</Label>
+   463→                <div className="relative mt-1.5">
+   464→                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   465→                  <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" />
+   466→                </div>
+   467→              </div>
+   468→              {mode === 'register' && (
+   469→                <div>
+   470→                  <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
+   471→                  <div className="relative mt-1.5">
+   472→                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   473→                    <Input id="whatsapp" placeholder="(11) 99999-9999" value={whatsapp} onChange={(e) => setWhatsapp(formatPhone(e.target.value))} className="pl-10" />
+   474→                  </div>
+   475→                </div>
+   476→              )}
+   477→              <div>
+   478→                <Label htmlFor="password">Senha</Label>
+   479→                <div className="relative mt-1.5">
+   480→                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   481→                  <Input id="password" type={showPass ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10" />
+   482→                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite-muted hover:text-graphite">
+   483→                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   484→                  </button>
+   485→                </div>
+   486→              </div>
+   487→              <Button type="submit" disabled={loading} className="w-full bg-burgundy hover:bg-burgundy-dark text-white py-6">
+   488→                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Aguarde...</> : mode === 'login' ? 'Entrar' : 'Criar Conta'}
+   489→              </Button>
+   490→            </form>
+   491→          </CardContent>
+   492→          <CardFooter className="justify-center">
+   493→            <Button variant="link" onClick={() => setView('landing')} className="text-graphite-muted">
+   494→              <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao início
+   495→            </Button>
+   496→          </CardFooter>
+   497→        </Card>
+   498→      </motion.div>
+   499→    </div>
+   500→  );
+   501→}
+   502→
+   503→/* ─────────────────── ONBOARDING PAGE ─────────────────── */
+   504→function OnboardingPage() {
+   505→  const { user, setView, setConfig } = useAppStore();
+   506→  const [loading, setLoading] = useState(false);
+   507→
+   508→  // Z-API credentials
+   509→  const [whatsappApiUrl, setWhatsappApiUrl] = useState('https://api.z-api.io');
+   510→  const [whatsappApiToken, setWhatsappApiToken] = useState('');
+   511→  const [whatsappInstanceName, setWhatsappInstanceName] = useState('');
+   512→
+   513→  const handleSave = async () => {
+   514→    if (!user) return;
+   515→    if (!whatsappApiToken || !whatsappInstanceName) {
+   516→      toast.error('Preencha o Token e o Instance ID');
+   517→      return;
+   518→    }
+   519→    setLoading(true);
+   520→    try {
+   521→      const configData: UserConfig = {
+   522→        whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
+   523→        whatsappApiToken,
+   524→        whatsappInstanceName,
+   525→        setupCompleted: true,
+   526→      };
+   527→      const res = await fetch('/api/onboarding', {
+   528→        method: 'POST',
+   529→        headers: { 'Content-Type': 'application/json' },
+   530→        body: JSON.stringify({ userId: user.id, ...configData }),
+   531→      });
+   532→      const data = await res.json();
+   533→      if (data.error) throw new Error(data.error);
+   534→      setConfig(configData);
+   535→      toast.success('Z-API configurada com sucesso! Mensagens serão enviadas via WhatsApp. 🎉');
+   536→      setView('dashboard');
+   537→    } catch (err) {
+   538→      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+   539→    } finally {
+   540→      setLoading(false);
+   541→    }
+   542→  };
+   543→
+   544→  const handleSkip = () => {
+   545→    if (!user) return;
+   546→    setConfig({ setupCompleted: false });
+   547→    toast.info('Configure a Z-API depois em Configurações para enviar mensagens reais.');
+   548→    setView('dashboard');
+   549→  };
+   550→
+   551→  return (
+   552→    <div className="min-h-screen flex flex-col bg-gradient-to-br from-burgundy-50 via-background to-rose-pastel-light">
+   553→      {/* Header */}
+   554→      <header className="glass-burgundy">
+   555→        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+   556→          <div className="flex items-center gap-2">
+   557→            <Heart className="w-6 h-6 text-burgundy" fill="#722F37" />
+   558→            <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
+   559→          </div>
+   560→          <Button variant="ghost" size="sm" onClick={handleSkip} className="text-graphite-muted">
+   561→            Pular Configuração <ChevronRight className="w-4 h-4 ml-1" />
+   562→          </Button>
+   563→        </div>
+   564→      </header>
+   565→
+   566→      <main className="flex-1 flex items-center justify-center px-4 py-8">
+   567→        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl">
+   568→          <Card className="shadow-xl border-burgundy/10">
+   569→            <CardHeader>
+   570→              <div className="flex items-center gap-3">
+   571→                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-green-600" /></div>
+   572→                <div>
+   573→                  <CardTitle>Conectar Z-API (WhatsApp)</CardTitle>
+   574→                  <CardDescription>Configure seu gateway para enviar mensagens reais</CardDescription>
+   575→                </div>
+   576→              </div>
+   577→            </CardHeader>
+   578→            <CardContent className="space-y-4">
+   579→              <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   580→                <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar suas credenciais:</p>
+   581→                <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   582→                  <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
+   583→                  <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
+   584→                  <li>Copie a URL completa de envio que fica no formato:<br /><code className="text-xs bg-burgundy/10 px-1.5 py-0.5 rounded break-all">https://api.z-api.io/instances/<strong>{'{INSTANCE_ID}'}</strong>/token/<strong>{'{TOKEN}'}</strong>/send-text</code></li>
+   585→                  <li>Cole o <strong>Instance ID</strong> e o <strong>Token</strong> nos campos abaixo.</li>
+   586→                </ol>
+   587→              </div>
+   588→              <div>
+   589→                <Label>API URL</Label>
+   590→                <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
+   591→                <p className="text-xs text-graphite-muted mt-1">Padrão: https://api.z-api.io</p>
+   592→              </div>
+   593→              <div>
+   594→                <Label>Instance ID</Label>
+   595→                <Input placeholder="3F5217F0ED99C172B0886272DDAD8C6F" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1.5" />
+   596→              </div>
+   597→              <div>
+   598→                <Label>API Token</Label>
+   599→                <Input placeholder="A5952CF5C5A11E0654F91542" type="password" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
+   600→              </div>
+   601→            </CardContent>
+   602→            <CardFooter className="flex justify-between">
+   603→              <Button variant="ghost" onClick={() => setView('landing')}><ChevronLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+   604→              <Button onClick={handleSave} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white">
+   605→                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar e Continuar</>}
+   606→              </Button>
+   607→            </CardFooter>
+   608→          </Card>
+   609→        </motion.div>
+   610→      </main>
+   611→    </div>
+   612→  );
+   613→}
+   614→
+   615→/* ─────────────────── DASHBOARD ─────────────────── */
+   616→function Dashboard() {
+   617→  const { user, isDevMode, logout, setView, setConfig } = useAppStore();
+   618→  const [contacts, setContacts] = useState<Contact[]>([]);
+   619→  const [schedules, setSchedules] = useState<Schedule[]>([]);
+   620→  const [history, setHistory] = useState<MessageHistory[]>([]);
+   621→  const [loading, setLoading] = useState(true);
+   622→
+   623→  const loadData = useCallback(async () => {
+   624→    if (!user) return;
+   625→    try {
+   626→      const [cRes, sRes, hRes, cfgRes] = await Promise.all([
+   627→        fetch(`/api/contacts?userId=${user.id}`),
+   628→        fetch(`/api/schedules?userId=${user.id}`),
+   629→        fetch(`/api/messages?userId=${user.id}`),
+   630→        fetch(`/api/onboarding?userId=${user.id}`),
+   631→      ]);
+   632→      const cData = await cRes.json();
+   633→      const sData = await sRes.json();
+   634→      const hData = await hRes.json();
+   635→      const cfgData = await cfgRes.json();
+   636→      setContacts(cData.error ? [] : cData);
+   637→      setSchedules(sData.error ? [] : sData);
+   638→      setHistory(hData.error ? [] : hData);
+   639→      // Sync config from DB (includes Z-API credentials)
+   640→      if (cfgData && !cfgData.error && cfgData.setupCompleted) {
+   641→        setConfig(cfgData);
+   642→      }
+   643→    } catch {
+   644→      // silently fail
+   645→    } finally {
+   646→      setLoading(false);
+   647→    }
+   648→  }, [user, setConfig]);
+   649→
+   650→  useEffect(() => { loadData(); }, [loadData]);
+   651→
+   652→  if (!user) return null;
+   653→
+   654→  return (
+   655→    <div className="min-h-screen flex flex-col bg-gradient-to-b from-burgundy-50/30 to-background">
+   656→      {/* Top Bar */}
+   657→      <header className="sticky top-0 z-50 glass-burgundy">
+   658→        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+   659→          <div className="flex items-center gap-3">
+   660→            <Heart className="w-6 h-6 text-burgundy" fill="#722F37" />
+   661→            <span className="font-bold text-gradient-burgundy hidden sm:inline">WhatsRomance</span>
+   662→          </div>
+   663→          <div className="flex items-center gap-2 sm:gap-4">
+   664→            {isDevMode ? (
+   665→              <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 px-3 py-1">
+   666→                <Crown className="w-3.5 h-3.5 mr-1" /> Créditos Ilimitados [Modo Dev]
+   667→              </Badge>
+   668→            ) : (
+   669→              <CreditBadge userId={user.id} credits={user.credits} onUpdate={loadData} />
+   670→            )}
+   671→            <Button variant="ghost" size="sm" onClick={logout} className="text-graphite-muted hover:text-burgundy">
+   672→              <LogOut className="w-4 h-4 sm:mr-2" />
+   673→              <span className="hidden sm:inline">Sair</span>
+   674→            </Button>
+   675→          </div>
+   676→        </div>
+   677→      </header>
+   678→
+   679→      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 sm:py-8">
+   680→        {/* Welcome Banner */}
+   681→        <motion.div
+   682→          initial={{ opacity: 0, y: 10 }}
+   683→          animate={{ opacity: 1, y: 0 }}
+   684→          className="mb-6 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-burgundy to-burgundy-light text-white"
+   685→        >
+   686→          <div className="flex items-center gap-3">
+   687→            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+   688→              <HeartHandshake className="w-5 h-5" />
+   689→            </div>
+   690→            <div>
+   691→              <h2 className="font-semibold text-lg">Olá, {user.name}! {isDevMode ? '👑' : '💕'}</h2>
+   692→              <p className="text-white/80 text-sm">Gerencie seus agendamentos e mantenha a chama acesa.</p>
+   693→            </div>
+   694→          </div>
+   695→        </motion.div>
+   696→
+   697→        <Tabs defaultValue="schedules">
+   698→          <TabsList className="grid w-full grid-cols-3 mb-6">
+   699→            <TabsTrigger value="schedules" className="text-xs sm:text-sm">
+   700→              <CalendarDays className="w-4 h-4 sm:mr-1.5" /> Agendamentos
+   701→            </TabsTrigger>
+   702→            <TabsTrigger value="history" className="text-xs sm:text-sm">
+   703→              <Clock className="w-4 h-4 sm:mr-1.5" /> Histórico
+   704→            </TabsTrigger>
+   705→            <TabsTrigger value="settings" className="text-xs sm:text-sm">
+   706→              <Settings className="w-4 h-4 sm:mr-1.5" /> Configurações
+   707→            </TabsTrigger>
+   708→          </TabsList>
+   709→
+   710→          <TabsContent value="schedules">
+   711→            {loading ? (
+   712→              <div className="space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" /></div>
+   713→            ) : (
+   714→              <ScheduleTab contacts={contacts} schedules={schedules} userId={user.id} userName={user.name} isDev={user.isDev} onUpdate={loadData} />
+   715→            )}
+   716→          </TabsContent>
+   717→
+   718→          <TabsContent value="history">
+   719→            {loading ? (
+   720→              <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
+   721→            ) : (
+   722→              <HistoryTab history={history} />
+   723→            )}
+   724→          </TabsContent>
+   725→
+   726→          <TabsContent value="settings">
+   727→            <SettingsTab userId={user.id} />
+   728→          </TabsContent>
+   729→        </Tabs>
+   730→      </main>
+   731→
+   732→      {/* Footer */}
+   733→      <footer className="mt-auto border-t border-burgundy/10 bg-white py-4">
+   734→        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+   735→          <div className="flex items-center gap-2">
+   736→            <Heart className="w-4 h-4 text-burgundy" fill="#722F37" />
+   737→            <span className="text-sm font-medium text-gradient-burgundy">WhatsRomance</span>
+   738→          </div>
+   739→          <p className="text-xs text-graphite-muted">&copy; 2025 WhatsRomance &middot; Feito com ❤️ para fortalecer relacionamentos</p>
+   740→        </div>
+   741→      </footer>
+   742→    </div>
+   743→  );
+   744→}
+   745→
+   746→/* Credit Badge */
+   747→function CreditBadge({ userId, credits, onUpdate }: { userId: string; credits: number; onUpdate: () => void }) {
+   748→  const [balance, setBalance] = useState(credits);
+   749→  const [showRecharge, setShowRecharge] = useState(false);
+   750→
+   751→  useEffect(() => {
+   752→    const loadCredits = async () => {
+   753→      try {
+   754→        const res = await fetch(`/api/credits?userId=${userId}`);
+   755→        const data = await res.json();
+   756→        if (data.credits !== undefined) setBalance(data.credits);
+   757→      } catch { /* ignore */ }
+   758→    };
+   759→    loadCredits();
+   760→  }, [userId]);
+   761→
+   762→  const handleRecharge = async (planId: string) => {
+   763→    const plan = PRICING_PLANS.find(p => p.id === planId);
+   764→    if (!plan) return;
+   765→    // For avulso, prompt for custom amount
+   766→    if (planId === 'avulso') {
+   767→      const amountStr = prompt('Quantos créditos deseja comprar? (mín. 10)');
+   768→      if (!amountStr) return;
+   769→      const amount = parseInt(amountStr, 10);
+   770→      if (isNaN(amount) || amount < 10) {
+   771→        toast.error('Mínimo de 10 créditos');
+   772→        return;
+   773→      }
+   774→      try {
+   775→        const res = await fetch('/api/credits/add', {
+   776→          method: 'POST',
+   777→          headers: { 'Content-Type': 'application/json' },
+   778→          body: JSON.stringify({ userId, amount, planName: `Avulso (${amount} créditos)` }),
+   779→        });
+   780→        const data = await res.json();
+   781→        if (data.error) throw new Error(data.error);
+   782→        setBalance(data.credits);
+   783→        toast.success(`${amount} créditos adicionados! 🎉`);
+   784→        setShowRecharge(false);
+   785→        onUpdate();
+   786→      } catch (err) {
+   787→        toast.error(err instanceof Error ? err.message : 'Erro');
+   788→      }
+   789→      return;
+   790→    }
+   791→    if (!plan.credits) return;
+   792→    try {
+   793→      const res = await fetch('/api/credits/add', {
+   794→        method: 'POST',
+   795→        headers: { 'Content-Type': 'application/json' },
+   796→        body: JSON.stringify({ userId, amount: plan.credits, planName: plan.name }),
+   797→      });
+   798→      const data = await res.json();
+   799→      if (data.error) throw new Error(data.error);
+   800→      setBalance(data.credits);
+   801→      toast.success(`${plan.credits} créditos adicionados! 🎉`);
+   802→      setShowRecharge(false);
+   803→      onUpdate();
+   804→    } catch (err) {
+   805→      toast.error(err instanceof Error ? err.message : 'Erro');
+   806→    }
+   807→  };
+   808→
+   809→  const pct = balance > 0 ? Math.min((balance / 365) * 100, 100) : 0;
+   810→
+   811→  return (
+   812→    <>
+   813→      <Dialog open={showRecharge} onOpenChange={setShowRecharge}>
+   814→        <DialogTrigger asChild>
+   815→          <Button variant="outline" size="sm" className="text-burgundy border-burgundy/30 hover:bg-burgundy-50">
+   816→            <CreditCard className="w-4 h-4 mr-1.5" />
+   817→            <span className="hidden sm:inline">{balance} créditos</span>
+   818→            <span className="sm:hidden">{balance}</span>
+   819→          </Button>
+   820→        </DialogTrigger>
+   821→        <DialogContent className="max-w-lg">
+   822→          <DialogHeader>
+   823→            <DialogTitle>Recarregar Créditos</DialogTitle>
+   824→            <DialogDescription>Escolha um plano para continuar enviando mensagens</DialogDescription>
+   825→          </DialogHeader>
+   826→          <div className="space-y-3 py-4">
+   827→            {PRICING_PLANS.map(p => (
+   828→              <Card key={p.id} className={`cursor-pointer transition-all hover:shadow-md ${p.popular ? 'border-2 border-burgundy' : ''}`} onClick={() => handleRecharge(p.id)}>
+   829→                <CardContent className="p-4 flex items-center justify-between">
+   830→                  <div>
+   831→                    <p className="font-semibold text-graphite">{p.name}</p>
+   832→                    <p className="text-sm text-graphite-muted">{p.totalPrice} {p.credits > 0 ? `· ${p.credits} mensagens` : '· R$ 0,50/unidade'}</p>
+   833→                  </div>
+   834→                  <Button size="sm" className="bg-burgundy hover:bg-burgundy-dark text-white">
+   835→                    {p.id === 'avulso' ? 'Recarregar' : 'Assinar'}
+   836→                  </Button>
+   837→                </CardContent>
+   838→              </Card>
+   839→            ))}
+   840→          </div>
+   841→        </DialogContent>
+   842→      </Dialog>
+   843→      {balance <= 5 && balance > 0 && (
+   844→        <Badge variant="destructive" className="text-xs animate-pulse">Baixo!</Badge>
+   845→      )}
+   846→      {balance === 0 && (
+   847→        <Badge variant="destructive" className="text-xs">Zerado!</Badge>
+   848→      )}
+   849→    </>
+   850→  );
+   851→}
+   852→
+   853→/* ─── Create Schedule Dialog ─── */
+   854→function CreateScheduleDialog({
+   855→  contacts, userId, open, onOpenChange, onSuccess
+   856→}: {
+   857→  contacts: Contact[]; userId: string; open: boolean; onOpenChange: (v: boolean) => void; onSuccess: () => void;
+   858→}) {
+   859→  const [contactId, setContactId] = useState('');
+   860→  const [selectedStyles, setSelectedStyles] = useState<MessageStyle[]>(['romantic']);
+   861→  const [times, setTimes] = useState<string[]>(['08:00']);
+   862→  const [newTime, setNewTime] = useState('12:00');
+   863→  const [loading, setLoading] = useState(false);
+   864→
+   865→  const toggleStyle = (s: MessageStyle) => {
+   866→    setSelectedStyles(prev =>
+   867→      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+   868→    );
+   869→  };
+   870→
+   871→  const addTime = () => {
+   872→    if (newTime && !times.includes(newTime) && times.length < 5) {
+   873→      setTimes([...times, newTime]);
+   874→      setNewTime('');
+   875→    }
+   876→  };
+   877→  const removeTime = (t: string) => setTimes(times.filter(x => x !== t));
+   878→
+   879→  const handleCreate = async () => {
+   880→    if (!contactId || selectedStyles.length === 0 || times.length === 0) {
+   881→      toast.error('Selecione um contato, pelo menos um estilo e um horário');
+   882→      return;
+   883→    }
+   884→    setLoading(true);
+   885→    try {
+   886→      const res = await fetch('/api/schedules', {
+   887→        method: 'POST',
+   888→        headers: { 'Content-Type': 'application/json' },
+   889→        body: JSON.stringify({
+   890→          userId, contactId, messageStyles: selectedStyles,
+   891→          timesPerDay: times.length, sendTimes: times,
+   892→        }),
+   893→      });
+   894→      const data = await res.json();
+   895→      if (data.error) throw new Error(data.error);
+   896→      toast.success('Agendamento automático ativado! 365 dias/ano 📅✨');
+   897→      onOpenChange(false);
+   898→      resetForm();
+   899→      onSuccess();
+   900→    } catch (err) {
+   901→      toast.error(err instanceof Error ? err.message : 'Erro ao criar agendamento');
+   902→    } finally {
+   903→      setLoading(false);
+   904→    }
+   905→  };
+   906→
+   907→  const resetForm = () => {
+   908→    setContactId('');
+   909→    setSelectedStyles(['romantic']);
+   910→    setTimes(['08:00']);
+   911→    setNewTime('12:00');
+   912→  };
+   913→
+   914→  return (
+   915→    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+   916→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   917→        <DialogHeader>
+   918→          <DialogTitle className="flex items-center gap-2">
+   919→            <CalendarDays className="w-5 h-5 text-burgundy" />
+   920→            Agendar Envio Automático
+   921→          </DialogTitle>
+   922→          <DialogDescription>Configure o envio automático de mensagens 365 dias por ano</DialogDescription>
+   923→        </DialogHeader>
+   924→
+   925→        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-1">
+   926→          <p className="font-medium flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Envio automático 365 dias por ano</p>
+   927→          <p className="text-green-700 text-xs mt-0.5">As mensagens serão geradas por IA e enviadas via WhatsApp automaticamente nos horários que você definir. Basta criar o agendamento uma única vez!</p>
+   928→        </div>
+   929→
+   930→        <div className="space-y-5 py-3">
+   931→          {/* Contact Selection */}
+   932→          <div>
+   933→            <Label className="text-sm font-medium">Contato *</Label>
+   934→            <Select value={contactId} onValueChange={setContactId}>
+   935→              <SelectTrigger className="mt-1.5">
+   936→                <SelectValue placeholder="Selecione um contato" />
+   937→              </SelectTrigger>
+   938→              <SelectContent>
+   939→                {contacts.map(c => (
+   940→                  <SelectItem key={c.id} value={c.id}>{c.name} — {c.phone}</SelectItem>
+   941→                ))}
+   942→              </SelectContent>
+   943→            </Select>
+   944→          </div>
+   945→
+   946→          {/* Style Selection */}
+   947→          <div>
+   948→            <Label className="text-sm font-medium">Estilos de Mensagem * <span className="text-graphite-muted font-normal">(pode marcar mais de um)</span></Label>
+   949→            <div className="grid grid-cols-2 gap-2 mt-2">
+   950→              {MESSAGE_STYLES.map(s => (
+   951→                <label
+   952→                  key={s.value}
+   953→                  className={`flex items-center gap-2.5 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+   954→                    selectedStyles.includes(s.value)
+   955→                      ? 'border-burgundy bg-burgundy-50'
+   956→                      : 'border-burgundy/10 hover:border-burgundy/30'
+   957→                  }`}
+   958→                >
+   959→                  <Checkbox
+   960→                    checked={selectedStyles.includes(s.value)}
+   961→                    onCheckedChange={() => toggleStyle(s.value)}
+   962→                  />
+   963→                  <div>
+   964→                    <span className="text-sm font-medium">{s.emoji} {s.label}</span>
+   965→                    <p className="text-xs text-graphite-muted">{s.description}</p>
+   966→                  </div>
+   967→                </label>
+   968→              ))}
+   969→            </div>
+   970→          </div>
+   971→
+   972→          {/* Times Selection */}
+   973→          <div>
+   974→            <Label className="text-sm font-medium">
+   975→              Horários de Envio *
+   976→              <span className="text-graphite-muted font-normal ml-1">({times.length}x ao dia, máx. 5)</span>
+   977→            </Label>
+   978→            <div className="flex flex-wrap gap-2 mt-2">
+   979→              {times.map(t => (
+   980→                <Badge key={t} variant="secondary" className="px-3 py-1.5 text-sm gap-1.5">
+   981→                  <Clock className="w-3.5 h-3.5" /> {t}
+   982→                  <button onClick={() => removeTime(t)} className="ml-0.5 hover:text-destructive transition-colors">
+   983→                    <X className="w-3 h-3" />
+   984→                  </button>
+   985→                </Badge>
+   986→              ))}
+   987→            </div>
+   988→            {times.length < 5 && (
+   989→              <div className="flex gap-2 mt-3">
+   990→                <div className="relative flex-1">
+   991→                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   992→                  <Input
+   993→                    type="time"
+   994→                    value={newTime}
+   995→                    onChange={(e) => setNewTime(e.target.value)}
+   996→                    className="pl-10"
+   997→                  />
+   998→                </div>
+   999→                <Button variant="outline" onClick={addTime} disabled={!newTime}>
+  1000→                  <Plus className="w-4 h-4" />
+  1001→                </Button>
+  1002→              </div>
+  1003→            )}
+  1004→          </div>
+  1005→        </div>
+  1006→
+  1007→        <DialogFooter>
+  1008→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+  1009→          <Button
+  1010→            onClick={handleCreate}
+  1011→            disabled={loading || !contactId || selectedStyles.length === 0}
+  1012→            className="bg-burgundy hover:bg-burgundy-dark text-white"
+  1013→          >
+  1014→            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Ativar Envio Automático</>}
+  1015→          </Button>
+  1016→        </DialogFooter>
+  1017→      </DialogContent>
+  1018→    </Dialog>
+  1019→  );
+  1020→}
+  1021→
+  1022→/* Schedule Tab */
+  1023→function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }: {
+  1024→  contacts: Contact[]; schedules: Schedule[]; userId: string; userName: string; isDev: boolean; onUpdate: () => void;
+  1025→}) {
+  1026→  const [showAddContact, setShowAddContact] = useState(false);
+  1027→  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
+  1028→  const [newContactName, setNewContactName] = useState('');
+  1029→  const [newContactPhone, setNewContactPhone] = useState('');
+  1030→  const [scheduleContact, setScheduleContact] = useState<Contact | null>(null);
+  1031→  const [genLoading, setGenLoading] = useState(false);
+  1032→  const [previewMsg, setPreviewMsg] = useState('');
+  1033→  const [selectedStyle, setSelectedStyle] = useState<MessageStyle>('romantic');
+  1034→
+  1035→  const addContact = async () => {
+  1036→    if (!newContactName || !newContactPhone) { toast.error('Preencha nome e telefone'); return; }
+  1037→    try {
+  1038→      const res = await fetch('/api/contacts', {
+  1039→        method: 'POST',
+  1040→        headers: { 'Content-Type': 'application/json' },
+  1041→        body: JSON.stringify({ userId, name: newContactName, phone: parsePhoneToDigits(newContactPhone) }),
+  1042→      });
+  1043→      const data = await res.json();
+  1044→      if (data.error) throw new Error(data.error);
+  1045→      toast.success('Contato adicionado! 💕');
+  1046→      setNewContactName('');
+  1047→      setNewContactPhone('');
+  1048→      setShowAddContact(false);
+  1049→      onUpdate();
+  1050→    } catch (err) {
+  1051→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1052→    }
+  1053→  };
+  1054→
+  1055→  const deleteContact = async (id: string) => {
+  1056→    try {
+  1057→      const res = await fetch('/api/contacts', {
+  1058→        method: 'DELETE',
+  1059→        headers: { 'Content-Type': 'application/json' },
+  1060→        body: JSON.stringify({ id, userId }),
+  1061→      });
+  1062→      const data = await res.json();
+  1063→      if (data.error) throw new Error(data.error);
+  1064→      toast.success('Contato removido');
+  1065→      onUpdate();
+  1066→    } catch (err) {
+  1067→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1068→    }
+  1069→  };
+  1070→
+  1071→  const handleGenerate = async (contact: Contact, style: MessageStyle) => {
+  1072→    setGenLoading(true);
+  1073→    setSelectedStyle(style);
+  1074→    try {
+  1075→      const res = await fetch('/api/messages/generate', {
+  1076→        method: 'POST',
+  1077→        headers: { 'Content-Type': 'application/json' },
+  1078→        body: JSON.stringify({ contactName: contact.name, senderName: userName, style, userId, contactId: contact.id }),
+  1079→      });
+  1080→      const data = await res.json();
+  1081→      if (data.error) throw new Error(data.error);
+  1082→      setPreviewMsg(data.message);
+  1083→      toast.success('Mensagem gerada! ✨');
+  1084→    } catch (err) {
+  1085→      toast.error(err instanceof Error ? err.message : 'Erro ao gerar');
+  1086→    } finally {
+  1087→      setGenLoading(false);
+  1088→    }
+  1089→  };
+  1090→
+  1091→  const handleSend = async (contact: Contact, message: string) => {
+  1092→    try {
+  1093→      const res = await fetch('/api/messages/send', {
+  1094→        method: 'POST',
+  1095→        headers: { 'Content-Type': 'application/json' },
+  1096→        body: JSON.stringify({
+  1097→          contactName: contact.name, phoneNumber: contact.phone,
+  1098→          message, style: selectedStyle, userId, contactId: contact.id,
+  1099→        }),
+  1100→      });
+  1101→      const data = await res.json();
+  1102→      if (data.error) throw new Error(data.error);
+  1103→      toast.success(data.message);
+  1104→      setPreviewMsg('');
+  1105→      setScheduleContact(null);
+  1106→      onUpdate();
+  1107→    } catch (err) {
+  1108→      toast.error(err instanceof Error ? err.message : 'Erro ao enviar');
+  1109→    }
+  1110→  };
+  1111→
+  1112→  const toggleSchedule = async (schedule: Schedule) => {
+  1113→    try {
+  1114→      const res = await fetch('/api/schedules', {
+  1115→        method: 'PUT',
+  1116→        headers: { 'Content-Type': 'application/json' },
+  1117→        body: JSON.stringify({ id: schedule.id, userId, active: !schedule.active }),
+  1118→      });
+  1119→      const data = await res.json();
+  1120→      if (data.error) throw new Error(data.error);
+  1121→      onUpdate();
+  1122→    } catch (err) {
+  1123→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1124→    }
+  1125→  };
+  1126→
+  1127→  const deleteSchedule = async (id: string) => {
+  1128→    try {
+  1129→      const res = await fetch('/api/schedules', {
+  1130→        method: 'DELETE',
+  1131→        headers: { 'Content-Type': 'application/json' },
+  1132→        body: JSON.stringify({ id, userId }),
+  1133→      });
+  1134→      const data = await res.json();
+  1135→      if (data.error) throw new Error(data.error);
+  1136→      toast.success('Agendamento removido');
+  1137→      onUpdate();
+  1138→    } catch (err) {
+  1139→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1140→    }
+  1141→  };
+  1142→
+  1143→  return (
+  1144→    <div className="space-y-6">
+  1145→      <div className="flex items-center justify-between">
+  1146→        <div>
+  1147→          <h2 className="text-xl font-bold text-graphite">Seus Contatos</h2>
+  1148→          <p className="text-sm text-graphite-muted">{contacts.length} contato(s) cadastrado(s)</p>
+  1149→        </div>
+  1150→        <div className="flex gap-2">
+  1151→          {contacts.length > 0 && (
+  1152→            <Button onClick={() => setShowCreateSchedule(true)} className="bg-green-600 hover:bg-green-700 text-white">
+  1153→              <CalendarDays className="w-4 h-4 mr-2" /> Agendar Automático
+  1154→            </Button>
+  1155→          )}
+  1156→          <Button onClick={() => setShowAddContact(true)} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1157→            <Plus className="w-4 h-4 mr-2" /> Novo Contato
+  1158→          </Button>
+  1159→        </div>
+  1160→      </div>
+  1161→
+  1162→      {/* Add Contact Dialog */}
+  1163→      <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
+  1164→        <DialogContent>
+  1165→          <DialogHeader>
+  1166→            <DialogTitle>Novo Contato</DialogTitle>
+  1167→            <DialogDescription>Adicione a pessoa que vai receber mensagens românticas</DialogDescription>
+  1168→          </DialogHeader>
+  1169→          <div className="space-y-4 py-2">
+  1170→            <div>
+  1171→              <Label>Nome do Contato</Label>
+  1172→              <Input placeholder="Nome do seu amor" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="mt-1.5" />
+  1173→            </div>
+  1174→            <div>
+  1175→              <Label>WhatsApp</Label>
+  1176→              <div className="relative mt-1.5">
+  1177→                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+  1178→                <Input placeholder="(11) 99999-9999" value={newContactPhone} onChange={(e) => setNewContactPhone(formatPhone(e.target.value))} className="pl-10" />
+  1179→              </div>
+  1180→            </div>
+  1181→          </div>
+  1182→          <DialogFooter>
+  1183→            <Button variant="outline" onClick={() => setShowAddContact(false)}>Cancelar</Button>
+  1184→            <Button onClick={addContact} className="bg-burgundy hover:bg-burgundy-dark text-white">Adicionar</Button>
+  1185→          </DialogFooter>
+  1186→        </DialogContent>
+  1187→      </Dialog>
+  1188→
+  1189→      {/* Create Schedule Dialog */}
+  1190→      <CreateScheduleDialog
+  1191→        contacts={contacts}
+  1192→        userId={userId}
+  1193→        open={showCreateSchedule}
+  1194→        onOpenChange={setShowCreateSchedule}
+  1195→        onSuccess={onUpdate}
+  1196→      />
+  1197→
+  1198→      {/* Contacts List */}
+  1199→      {contacts.length === 0 ? (
+  1200→        <Card className="border-dashed border-2 border-burgundy/20">
+  1201→          <CardContent className="py-12 text-center">
+  1202→            <Heart className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+  1203→            <p className="text-graphite-muted font-medium">Nenhum contato ainda</p>
+  1204→            <p className="text-sm text-graphite-muted/70">Adicione seu amor para começar a enviar mensagens</p>
+  1205→          </CardContent>
+  1206→        </Card>
+  1207→      ) : (
+  1208→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1209→          {contacts.map((contact) => (
+  1210→            <Card key={contact.id} className="border-burgundy/10 hover:shadow-md transition-shadow">
+  1211→              <CardContent className="p-4">
+  1212→                <div className="flex items-start justify-between mb-3">
+  1213→                  <div className="flex items-center gap-3">
+  1214→                    <div className="w-10 h-10 rounded-full bg-burgundy/10 flex items-center justify-center">
+  1215→                      <UserIcon className="w-5 h-5 text-burgundy" />
+  1216→                    </div>
+  1217→                    <div>
+  1218→                      <p className="font-semibold text-graphite">{contact.name}</p>
+  1219→                      <p className="text-sm text-graphite-muted">{contact.phone}</p>
+  1220→                    </div>
+  1221→                  </div>
+  1222→                  <Button variant="ghost" size="sm" onClick={() => deleteContact(contact.id)} className="text-graphite-muted hover:text-destructive">
+  1223→                    <Trash2 className="w-4 h-4" />
+  1224→                  </Button>
+  1225→                </div>
+  1226→                <p className="text-xs text-graphite-muted mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Gerar mensagem rápida:</p>
+  1227→                <div className="flex gap-2">
+  1228→                  {MESSAGE_STYLES.map((s) => (
+  1229→                    <Button
+  1230→                      key={s.value}
+  1231→                      size="sm"
+  1232→                      variant="outline"
+  1233→                      className="text-xs flex-1 hover:bg-burgundy-50 hover:border-burgundy/30 hover:text-burgundy"
+  1234→                      disabled={genLoading}
+  1235→                      onClick={() => { setScheduleContact(contact); handleGenerate(contact, s.value); }}
+  1236→                    >
+  1237→                      {s.emoji} {s.label}
+  1238→                    </Button>
+  1239→                  ))}
+  1240→                </div>
+  1241→                {scheduleContact?.id === contact.id && previewMsg && (
+  1242→                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
+  1243→                    <div className="bg-rose-pastel-light rounded-lg p-3 border border-burgundy/10 mb-2">
+  1244→                      <div className="flex items-center gap-1.5 mb-1.5">
+  1245→                        <Badge variant="secondary" className="text-xs">
+  1246→                          {styleEmojis[selectedStyle]} {styleLabels[selectedStyle]}
+  1247→                        </Badge>
+  1248→                      </div>
+  1249→                      <p className="text-sm text-graphite whitespace-pre-wrap">{previewMsg}</p>
+  1250→                    </div>
+  1251→                    <div className="flex gap-2">
+  1252→                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setGenLoading(true); handleGenerate(contact, selectedStyle).finally(() => setGenLoading(false)); }}>
+  1253→                        <RefreshCw className={`w-4 h-4 mr-1.5 ${genLoading ? 'animate-spin' : ''}`} /> Regenerar
+  1254→                      </Button>
+  1255→                      <Button size="sm" className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white" onClick={() => handleSend(contact, previewMsg)}>
+  1256→                        <Send className="w-4 h-4 mr-1.5" /> Enviar
+  1257→                      </Button>
+  1258→                    </div>
+  1259→                  </motion.div>
+  1260→                )}
+  1261→              </CardContent>
+  1262→            </Card>
+  1263→          ))}
+  1264→        </div>
+  1265→      )}
+  1266→
+  1267→      {/* Active Schedules */}
+  1268→      {schedules.length > 0 && (
+  1269→        <div className="mt-8">
+  1270→          <div className="flex items-center justify-between mb-4">
+  1271→            <div>
+  1272→              <h3 className="text-lg font-bold text-graphite flex items-center gap-2">
+  1273→                <CalendarDays className="w-5 h-5 text-burgundy" />
+  1274→                Agendamentos Automáticos
+  1275→              </h3>
+  1276→              <p className="text-sm text-graphite-muted">Envio automático 365 dias por ano nos horários configurados</p>
+  1277→            </div>
+  1278→            <Badge className="bg-green-100 text-green-700 border-green-200">
+  1279→              <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5 animate-pulse" />
+  1280→              Servidor Ativo
+  1281→            </Badge>
+  1282→          </div>
+  1283→          <div className="space-y-3">
+  1284→            {schedules.map((s) => (
+  1285→              <Card key={s.id} className={`border-burgundy/10 ${!s.active ? 'opacity-50' : 'border-l-4 border-l-green-500'}`}>
+  1286→                <CardContent className="p-4">
+  1287→                  <div className="flex items-start justify-between">
+  1288→                    <div className="flex-1 min-w-0">
+  1289→                      <div className="flex items-center gap-2 mb-1.5">
+  1290→                        <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+  1291→                          <UserIcon className="w-4 h-4 text-burgundy" />
+  1292→                        </div>
+  1293→                        <p className="font-semibold text-graphite truncate">{s.contactName}</p>
+  1294→                        {s.active && (
+  1295→                          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+  1296→                            🔔 Automático
+  1297→                          </Badge>
+  1298→                        )}
+  1299→                        {!s.active && (
+  1300→                          <Badge variant="secondary" className="text-xs">Pausado</Badge>
+  1301→                        )}
+  1302→                      </div>
+  1303→                      <div className="flex gap-1 flex-wrap ml-10 mb-2">
+  1304→                        {s.messageStyles.map((st: string) => (
+  1305→                          <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
+  1306→                            {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
+  1307→                          </Badge>
+  1308→                        ))}
+  1309→                      </div>
+  1310→                      <div className="ml-10 flex items-center gap-4 text-sm text-graphite-muted">
+  1311→                        <span className="flex items-center gap-1">
+  1312→                          <Clock className="w-3.5 h-3.5" />
+  1313→                          {s.timesPerDay}x ao dia
+  1314→                        </span>
+  1315→                        <span className="flex items-center gap-1">
+  1316→                          <CalendarDays className="w-3.5 h-3.5" />
+  1317→                          {s.sendTimes.join(', ')}
+  1318→                        </span>
+  1319→                        <span className="flex items-center gap-1 text-green-600">
+  1320→                          <Sparkles className="w-3.5 h-3.5" />
+  1321→                          365 dias/ano
+  1322→                        </span>
+  1323→                      </div>
+  1324→                    </div>
+  1325→                    <div className="flex items-center gap-2 ml-3 pt-1">
+  1326→                      <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
+  1327→                      <Button variant="ghost" size="sm" onClick={() => deleteSchedule(s.id)} className="text-graphite-muted hover:text-destructive">
+  1328→                        <Trash2 className="w-4 h-4" />
+  1329→                      </Button>
+  1330→                    </div>
+  1331→                  </div>
+  1332→                </CardContent>
+  1333→              </Card>
+  1334→            ))}
+  1335→          </div>
+  1336→        </div>
+  1337→      )}
+  1338→    </div>
+  1339→  );
+  1340→}
+  1341→
+  1342→/* History Tab */
+  1343→function HistoryTab({ history }: { history: MessageHistory[] }) {
+  1344→  const [expanded, setExpanded] = useState<string | null>(null);
+  1345→
+  1346→  if (history.length === 0) {
+  1347→    return (
+  1348→      <Card className="border-dashed border-2 border-burgundy/20">
+  1349→        <CardContent className="py-12 text-center">
+  1350→          <Clock className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+  1351→          <p className="text-graphite-muted font-medium">Nenhum envio ainda</p>
+  1352→          <p className="text-sm text-graphite-muted/70">As mensagens enviadas aparecerão aqui</p>
+  1353→        </CardContent>
+  1354→      </Card>
+  1355→    );
+  1356→  }
+  1357→
+  1358→  const statusConfig: Record<string, { label: string; className: string }> = {
+  1359→    sent: { label: 'Enviado', className: 'bg-green-100 text-green-700 border-green-200' },
+  1360→    delivered: { label: 'Entregue', className: 'bg-teal-100 text-teal-700 border-teal-200' },
+  1361→    pending: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  1362→    failed: { label: 'Falhou', className: 'bg-red-100 text-red-700 border-red-200' },
+  1363→  };
+  1364→
+  1365→  return (
+  1366→    <ScrollArea className="max-h-[70vh]">
+  1367→      <div className="space-y-3">
+  1368→        {history.map((msg) => {
+  1369→          const st = statusConfig[msg.status] || statusConfig.pending;
+  1370→          return (
+  1371→            <Card key={msg.id} className="border-burgundy/10 hover:shadow-sm transition-shadow">
+  1372→              <CardContent className="p-4">
+  1373→                <div className="flex items-start justify-between mb-2">
+  1374→                  <div className="flex items-center gap-2 min-w-0">
+  1375→                    <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+  1376→                      <UserIcon className="w-4 h-4 text-burgundy" />
+  1377→                    </div>
+  1378→                    <div className="min-w-0">
+  1379→                      <p className="font-medium text-graphite truncate">{msg.contactName}</p>
+  1380→                      <p className="text-xs text-graphite-muted">{new Date(msg.sentAt).toLocaleString('pt-BR')}</p>
+  1381→                    </div>
+  1382→                  </div>
+  1383→                  <div className="flex items-center gap-2 shrink-0">
+  1384→                    <Badge className={`text-xs ${st.className}`}>{st.label}</Badge>
+  1385→                    <Badge variant="secondary" className="text-xs">
+  1386→                      {styleEmojis[msg.style as MessageStyle] || '💬'} {styleLabels[msg.style as MessageStyle] || msg.style}
+  1387→                    </Badge>
+  1388→                  </div>
+  1389→                </div>
+  1390→                <p
+  1391→                  className={`text-sm text-graphite-muted leading-relaxed cursor-pointer ${expanded === msg.id ? '' : 'line-clamp-2'}`}
+  1392→                  onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
+  1393→                >
+  1394→                  {msg.message}
+  1395→                </p>
+  1396→                {expanded === msg.id && (
+  1397→                  <Button variant="link" size="sm" onClick={() => setExpanded(null)} className="text-burgundy p-0 h-auto mt-1">
+  1398→                    Mostrar menos
+  1399→                  </Button>
+  1400→                )}
+  1401→              </CardContent>
+  1402→            </Card>
+  1403→          );
+  1404→        })}
+  1405→      </div>
+  1406→    </ScrollArea>
+  1407→  );
+  1408→}
+  1409→
+  1410→/* Settings Tab */
+  1411→function SettingsTab({ userId }: { userId: string }) {
+  1412→  const { user, config, setConfig } = useAppStore();
+  1413→  const [testing, setTesting] = useState(false);
+  1414→  const [connectionStatus, setConnectionStatus] = useState<{
+  1415→    configured: boolean;
+  1416→    connected?: boolean;
+  1417→    phone?: string;
+  1418→    battery?: number;
+  1419→    pushName?: string;
+  1420→    error?: string;
+  1421→  } | null>(null);
+  1422→  const [showEditConfig, setShowEditConfig] = useState(false);
+  1423→  const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || 'https://api.z-api.io');
+  1424→  const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
+  1425→  const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
+  1426→  const [saving, setSaving] = useState(false);
+  1427→
+  1428→  // Sync local state when config loads from DB
+  1429→  useEffect(() => {
+  1430→    if (config?.whatsappApiUrl) setWhatsappApiUrl(config.whatsappApiUrl);
+  1431→    if (config?.whatsappApiToken) setWhatsappApiToken(config.whatsappApiToken);
+  1432→    if (config?.whatsappInstanceName) setWhatsappInstanceName(config.whatsappInstanceName);
+  1433→  }, [config]);
+  1434→
+  1435→  const testConnection = async () => {
+  1436→    setTesting(true);
+  1437→    setConnectionStatus(null);
+  1438→    try {
+  1439→      const res = await fetch(`/api/whatsapp/status?userId=${userId}`);
+  1440→      const data = await res.json();
+  1441→      setConnectionStatus(data);
+  1442→      if (data.connected) {
+  1443→        toast.success(`WhatsApp conectado! Número: ${data.phone} 📱✅`);
+  1444→      } else if (data.configured === false) {
+  1445→        toast.error('Z-API não configurada. Preencha as credenciais primeiro.');
+  1446→      } else {
+  1447→        toast.error(`Conexão falhou: ${data.error || 'Verifique as credenciais'}`);
+  1448→      }
+  1449→    } catch {
+  1450→      toast.error('Erro ao testar conexão com Z-API');
+  1451→    } finally {
+  1452→      setTesting(false);
+  1453→    }
+  1454→  };
+  1455→
+  1456→  const handleSaveConfig = async () => {
+  1457→    if (!user) return;
+  1458→    setSaving(true);
+  1459→    try {
+  1460→      const res = await fetch('/api/onboarding', {
+  1461→        method: 'POST',
+  1462→        headers: { 'Content-Type': 'application/json' },
+  1463→        body: JSON.stringify({
+  1464→          userId: user.id,
+  1465→          whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
+  1466→          whatsappApiToken,
+  1467→          whatsappInstanceName,
+  1468→        }),
+  1469→      });
+  1470→      const data = await res.json();
+  1471→      if (data.error) throw new Error(data.error);
+  1472→      setConfig({ whatsappApiUrl, whatsappApiToken, whatsappInstanceName, setupCompleted: true });
+  1473→      toast.success('Configurações Z-API atualizadas! 🎉');
+  1474→      setShowEditConfig(false);
+  1475→    } catch (err) {
+  1476→      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+  1477→    } finally {
+  1478→      setSaving(false);
+  1479→    }
+  1480→  };
+  1481→
+  1482→  const isZapiConfigured = !!(config?.whatsappApiToken && config?.whatsappInstanceName);
+  1483→
+  1484→  return (
+  1485→    <div className="space-y-6">
+  1486→      {/* Stats Cards */}
+  1487→      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+  1488→        <Card className="border-burgundy/10">
+  1489→          <CardContent className="p-4 text-center">
+  1490→            <p className="text-2xl font-bold text-graphite">{user?.credits ?? 0}</p>
+  1491→            <p className="text-xs text-graphite-muted mt-1">Créditos {user?.isDev ? '(∞)' : ''}</p>
+  1492→          </CardContent>
+  1493→        </Card>
+  1494→        <Card className="border-burgundy/10">
+  1495→          <CardContent className="p-4 text-center">
+  1496→            <p className="text-2xl font-bold">{isZapiConfigured ? '✅' : '⏳'}</p>
+  1497→            <p className="text-xs text-graphite-muted mt-1">Z-API</p>
+  1498→          </CardContent>
+  1499→        </Card>
+  1500→        <Card className="border-burgundy/10 col-span-2 sm:col-span-1">
+  1501→          <CardContent className="p-4 text-center">
+  1502→            <p className="text-2xl font-bold text-graphite">{user?.isDev ? '👑' : '👤'}</p>
+  1503→            <p className="text-xs text-graphite-muted mt-1">{user?.isDev ? 'Admin' : 'Usuário'}</p>
+  1504→          </CardContent>
+  1505→        </Card>
+  1506→      </div>
+  1507→
+  1508→      {/* Z-API Status Card */}
+  1509→      <Card className="border-burgundy/10">
+  1510→        <CardHeader className="flex flex-row items-center justify-between">
+  1511→          <div>
+  1512→            <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Z-API (WhatsApp)</CardTitle>
+  1513→            <CardDescription>Status da conexão com seu WhatsApp</CardDescription>
+  1514→          </div>
+  1515→          <div className="flex gap-2">
+  1516→            <Button variant="outline" size="sm" onClick={testConnection} disabled={testing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+  1517→              {testing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-1.5" /> Testar</>}
+  1518→            </Button>
+  1519→            <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+  1520→              <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
+  1521→            </Button>
+  1522→          </div>
+  1523→        </CardHeader>
+  1524→        <CardContent className="space-y-3">
+  1525→          {[
+  1526→            { label: 'API URL', value: config?.whatsappApiUrl, icon: MessageCircle },
+  1527→            { label: 'Instance ID', value: config?.whatsappInstanceName, icon: Phone },
+  1528→            { label: 'Token', value: config?.whatsappApiToken ? '••••••••••••' : undefined, icon: Lock },
+  1529→          ].map((f) => (
+  1530→            <div key={f.label} className="flex items-center justify-between py-2.5 border-b border-burgundy/5 last:border-0">
+  1531→              <div className="flex items-center gap-3">
+  1532→                <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center shrink-0">
+  1533→                  <f.icon className="w-4 h-4 text-burgundy" />
+  1534→                </div>
+  1535→                <div className="min-w-0">
+  1536→                  <p className="text-sm font-medium text-graphite">{f.label}</p>
+  1537→                  <p className="text-xs text-graphite-muted truncate max-w-[280px]">{f.value || 'Não configurado'}</p>
+  1538→                </div>
+  1539→              </div>
+  1540→              <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-green-100 text-green-700 border-green-200' : ''}>
+  1541→                {f.value ? 'Ativo' : 'Pendente'}
+  1542→              </Badge>
+  1543→            </div>
+  1544→          ))}
+  1545→
+  1546→          {connectionStatus && (
+  1547→            <motion.div
+  1548→              initial={{ opacity: 0, y: 10 }}
+  1549→              animate={{ opacity: 1, y: 0 }}
+  1550→              className={`p-4 rounded-lg border mt-3 ${
+  1551→                connectionStatus.connected
+  1552→                  ? 'bg-green-50 border-green-200'
+  1553→                  : connectionStatus.configured === false
+  1554→                    ? 'bg-amber-50 border-amber-200'
+  1555→                    : 'bg-red-50 border-red-200'
+  1556→              }`}
+  1557→            >
+  1558→              <div className="flex items-center gap-2 mb-2">
+  1559→                <div className={`w-3 h-3 rounded-full ${connectionStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+  1560→                <span className="font-semibold text-sm">
+  1561→                  {connectionStatus.connected ? 'Conectado' : connectionStatus.configured === false ? 'Não Configurado' : 'Desconectado'}
+  1562→                </span>
+  1563→              </div>
+  1564→              {connectionStatus.connected && (
+  1565→                <div className="text-sm text-graphite-muted space-y-1">
+  1566→                  <p>📱 Número: <strong>{connectionStatus.phone}</strong></p>
+  1567→                  {connectionStatus.pushName && <p>👤 Push Name: <strong>{connectionStatus.pushName}</strong></p>}
+  1568→                  {connectionStatus.battery !== undefined && <p>🔋 Bateria: <strong>{connectionStatus.battery}%</strong></p>}
+  1569→                </div>
+  1570→              )}
+  1571→              {!connectionStatus.connected && connectionStatus.error && (
+  1572→                <p className="text-sm text-red-600">{connectionStatus.error}</p>
+  1573→              )}
+  1574→            </motion.div>
+  1575→          )}
+  1576→        </CardContent>
+  1577→      </Card>
+  1578→
+  1579→      {/* Edit Z-API Config Dialog */}
+  1580→      <Dialog open={showEditConfig} onOpenChange={setShowEditConfig}>
+  1581→        <DialogContent className="max-w-lg">
+  1582→          <DialogHeader>
+  1583→            <DialogTitle>Configurar Z-API</DialogTitle>
+  1584→            <DialogDescription>Atualize suas credenciais do gateway WhatsApp</DialogDescription>
+  1585→          </DialogHeader>
+  1586→          <div className="space-y-4 py-3">
+  1587→            <div className="bg-green-50 rounded-lg p-3 text-sm">
+  1588→              <p className="font-medium text-graphite flex items-center gap-1.5 mb-2"><MessageCircle className="w-4 h-4 text-green-600" /> Credenciais Z-API</p>
+  1589→              <div className="space-y-3">
+  1590→                <div>
+  1591→                  <Label className="text-xs">API URL</Label>
+  1592→                  <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1" />
+  1593→                </div>
+  1594→                <div>
+  1595→                  <Label className="text-xs">Instance ID</Label>
+  1596→                  <Input placeholder="3F5217F0ED99C172B0886272DDAD8C6F" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1" />
+  1597→                </div>
+  1598→                <div>
+  1599→                  <Label className="text-xs">API Token</Label>
+  1600→                  <Input type="password" placeholder="A5952CF5C5A11E0654F91542" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" />
+  1601→                </div>
+  1602→              </div>
+  1603→            </div>
+  1604→          </div>
+  1605→          <DialogFooter>
+  1606→            <Button variant="outline" onClick={() => setShowEditConfig(false)}>Cancelar</Button>
+  1607→            <Button onClick={handleSaveConfig} disabled={saving} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1608→              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar</>}
+  1609→            </Button>
+  1610→          </DialogFooter>
+  1611→        </DialogContent>
+  1612→      </Dialog>
+  1613→    </div>
+  1614→  );
+  1615→}
+  1616→
+  1617→/* ─────────────────── MAIN PAGE ─────────────────── */
+  1618→export default function HomePage() {
+  1619→  const { currentView, user, setView } = useAppStore();
+  1620→  const [mounted, setMounted] = useState(false);
+  1621→
+  1622→  useEffect(() => {
+  1623→    const id = requestAnimationFrame(() => setMounted(true));
+  1624→    return () => cancelAnimationFrame(id);
+  1625→  }, []);
+  1626→
+  1627→  // Auto-redirect: if user is logged in but viewing landing/auth, go to dashboard
+  1628→  useEffect(() => {
+  1629→    if (mounted && user && (currentView === 'landing' || currentView === 'auth')) {
+  1630→      setView('dashboard');
+  1631→    }
+  1632→  }, [mounted, user, currentView, setView]);
+  1633→
+  1634→  if (!mounted) {
+  1635→    return (
+  1636→      <div className="min-h-screen flex items-center justify-center bg-background">
+  1637→        <div className="flex flex-col items-center gap-4">
+  1638→          <Heart className="w-10 h-10 text-burgundy animate-pulse-heart" fill="#722F37" />
+  1639→          <p className="text-graphite-muted text-sm">Carregando WhatsRomance...</p>
+  1640→        </div>
+  1641→      </div>
+  1642→    );
+  1643→  }
+  1644→
+  1645→  return (
+  1646→    <AnimatePresence mode="wait">
+  1647→      {currentView === 'landing' && (
+  1648→        <motion.div key="landing" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1649→          <LandingPage />
+  1650→        </motion.div>
+  1651→      )}
+  1652→      {currentView === 'auth' && (
+  1653→        <motion.div key="auth" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1654→          <AuthPage />
+  1655→        </motion.div>
+  1656→      )}
+  1657→      {currentView === 'onboarding' && (
+  1658→        <motion.div key="onboarding" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1659→          <OnboardingPage />
+  1660→        </motion.div>
+  1661→      )}
+  1662→      {currentView === 'dashboard' && (
+  1663→        <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1664→          <Dashboard />
+  1665→        </motion.div>
+  1666→      )}
+  1667→    </AnimatePresence>
+  1668→  );
+  1669→}

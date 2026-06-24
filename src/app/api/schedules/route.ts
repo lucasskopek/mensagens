@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
       messageStyles: JSON.parse(s.messageStyles),
       timesPerDay: s.timesPerDay,
       sendTimes: JSON.parse(s.sendTimes),
+      recurring: s.recurring,
+      selectedDates: JSON.parse(s.selectedDates),
       active: s.active,
       createdAt: s.createdAt,
     }));
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, contactId, messageStyles, timesPerDay, sendTimes } = body;
+    const { userId, contactId, messageStyles, timesPerDay, sendTimes, recurring, selectedDates } = body;
 
     if (!userId || !contactId || !messageStyles || !sendTimes) {
       return NextResponse.json(
@@ -62,6 +64,11 @@ export async function POST(request: NextRequest) {
       ? sendTimes
       : JSON.stringify(sendTimes);
 
+    const isRecurring = recurring !== undefined ? recurring : true;
+    const dates = selectedDates
+      ? (typeof selectedDates === 'string' ? selectedDates : JSON.stringify(selectedDates))
+      : '[]';
+
     const schedule = await db.schedule.create({
       data: {
         userId,
@@ -69,6 +76,8 @@ export async function POST(request: NextRequest) {
         messageStyles: styles,
         timesPerDay: timesPerDay || 1,
         sendTimes: times,
+        recurring: isRecurring,
+        selectedDates: dates,
         active: true,
       },
     });
@@ -77,6 +86,7 @@ export async function POST(request: NextRequest) {
       ...schedule,
       messageStyles: JSON.parse(schedule.messageStyles),
       sendTimes: JSON.parse(schedule.sendTimes),
+      selectedDates: JSON.parse(schedule.selectedDates),
     }, { status: 201 });
   } catch (error) {
     console.error('Schedules POST error:', error);
@@ -125,6 +135,19 @@ export async function PUT(request: NextRequest) {
         ? fields.sendTimes
         : JSON.stringify(fields.sendTimes);
     }
+    if (fields.recurring !== undefined) {
+      updateData.recurring = fields.recurring;
+    }
+    if (fields.selectedDates !== undefined) {
+      updateData.selectedDates = typeof fields.selectedDates === 'string'
+        ? fields.selectedDates
+        : JSON.stringify(fields.selectedDates);
+    }
+    if (fields.executionLog !== undefined) {
+      updateData.executionLog = typeof fields.executionLog === 'string'
+        ? fields.executionLog
+        : JSON.stringify(fields.executionLog);
+    }
     if (fields.active !== undefined) {
       updateData.active = fields.active;
     }
@@ -138,6 +161,8 @@ export async function PUT(request: NextRequest) {
       ...updated,
       messageStyles: JSON.parse(updated.messageStyles),
       sendTimes: JSON.parse(updated.sendTimes),
+      selectedDates: JSON.parse(updated.selectedDates),
+      executionLog: JSON.parse(updated.executionLog),
     });
   } catch (error) {
     console.error('Schedules PUT error:', error);

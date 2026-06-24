@@ -119,3 +119,27 @@ Stage Summary:
 - Health check: http://localhost:3002/health
 - Manual trigger: http://localhost:3002/trigger
 
+---
+Task ID: 1-8
+Agent: main
+Task: Fix scheduled message execution, add calendar date picker with 365 dias button, fix history tab
+
+Work Log:
+- Updated Prisma schema: added `recurring`, `selectedDates`, `executionLog` fields to Schedule model
+- Updated TypeScript types: added `recurring` and `selectedDates` to Schedule interface
+- Updated `/api/schedules` route: handle new fields in POST, GET, PUT operations
+- Created `/api/schedules/execute/route.ts`: background executor that checks active schedules every call, matches current time (America/Sao_Paulo) against sendTimes, generates AI messages, sends via Z-API, records in MessageHistory, updates executionLog to prevent duplicates
+- Created `mini-services/scheduler/`: bun service with setInterval every 60s that calls the execute API endpoint
+- Rewrote `CreateScheduleDialog`: added Calendar date picker (react-day-picker mode=multiple) with Popover, 365 Dias green button (sets recurring=true), time picker, info box explaining 365 vs specific dates
+- Updated Schedule display in ScheduleTab: shows "📅 365 dias/ano" badge for recurring, "📅 X dia(s) selecionado(s)" for specific dates with formatted date summary
+- Fixed HistoryTab: added onRefresh callback, "Atualizar" button with spinning animation, message count display
+- Updated Dashboard: added activeTab state, controlled Tabs with value/onValueChange, auto-refreshes data when switching to history tab
+- Verified end-to-end: scheduler picks up schedules, generates AI messages, attempts Z-API send, records in history
+
+Stage Summary:
+- Scheduled messages now execute automatically via the background scheduler (every 60s)
+- Calendar picker allows selecting specific dates OR using "365 Dias" for daily recurring
+- History tab auto-refreshes on tab switch and has manual refresh button
+- Z-API sends may fail with 403 if WhatsApp session expired (separate from scheduling)
+- All code compiles cleanly, lint passes, browser verification successful
+

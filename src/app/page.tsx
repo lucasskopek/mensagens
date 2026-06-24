@@ -20,6 +20,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 import {
   Heart, MessageCircle, Clock, User as UserIcon, Settings, LogOut, Plus, Trash2, Send,
   Check, X, ChevronRight, Crown, Sparkles, Eye, EyeOff,
@@ -619,6 +622,7 @@ function Dashboard() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [history, setHistory] = useState<MessageHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('schedules');
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -648,6 +652,10 @@ function Dashboard() {
   }, [user, setConfig]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (activeTab === 'history') loadData();
+  }, [activeTab, loadData]);
 
   if (!user) return null;
 
@@ -694,7 +702,7 @@ function Dashboard() {
           </div>
         </motion.div>
 
-        <Tabs defaultValue="schedules">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="schedules" className="text-xs sm:text-sm">
               <CalendarDays className="w-4 h-4 sm:mr-1.5" /> Agendamentos
@@ -719,7 +727,7 @@ function Dashboard() {
             {loading ? (
               <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
             ) : (
-              <HistoryTab history={history} />
+              <HistoryTab history={history} onRefresh={loadData} />
             )}
           </TabsContent>
 
@@ -861,6 +869,8 @@ function CreateScheduleDialog({
   const [times, setTimes] = useState<string[]>(['08:00']);
   const [newTime, setNewTime] = useState('12:00');
   const [loading, setLoading] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [recurring, setRecurring] = useState(true);
 
   const toggleStyle = (s: MessageStyle) => {
     setSelectedStyles(prev =>
@@ -876,24 +886,50 @@ function CreateScheduleDialog({
   };
   const removeTime = (t: string) => setTimes(times.filter(x => x !== t));
 
+  const handleDateSelect = (dates: Date[] | undefined) => {
+    if (dates && dates.length > 0) {
+      setSelectedDates(dates);
+      setRecurring(false);
+    } else {
+      setSelectedDates([]);
+      setRecurring(true);
+    }
+  };
+
+  const handle365Days = () => {
+    setSelectedDates([]);
+    setRecurring(true);
+  };
+
   const handleCreate = async () => {
     if (!contactId || selectedStyles.length === 0 || times.length === 0) {
       toast.error('Selecione um contato, pelo menos um estilo e um horário');
       return;
     }
+    if (!recurring && selectedDates.length === 0) {
+      toast.error('Selecione datas no calendário ou use 365 Dias');
+      return;
+    }
     setLoading(true);
     try {
+      const payload = {
+        userId, contactId, messageStyles: selectedStyles,
+        timesPerDay: times.length, sendTimes: times,
+        recurring,
+        selectedDates: recurring ? [] : selectedDates.map(d => format(d, 'yyyy-MM-dd')),
+      };
       const res = await fetch('/api/schedules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId, contactId, messageStyles: selectedStyles,
-          timesPerDay: times.length, sendTimes: times,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      toast.success('Agendamento automático ativado! 365 dias/ano 📅✨');
+      if (recurring) {
+        toast.success(`Agendamento 365 dias ativado! Primeira mensagem hoje às ${times[0]} 📅✨`);
+      } else {
+        toast.success(`Agendamento criado para ${selectedDates.length} dia(s) específico(s) 📅✨`);
+      }
       onOpenChange(false);
       resetForm();
       onSuccess();
@@ -909,6 +945,8 @@ function CreateScheduleDialog({
     setSelectedStyles(['romantic']);
     setTimes(['08:00']);
     setNewTime('12:00');
+    setSelectedDates([]);
+    setRecurring(true);
   };
 
   return (
@@ -917,15 +955,10 @@ function CreateScheduleDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-burgundy" />
-            Agendar Envio Automático
+            Agendar Envio de Mensagens
           </DialogTitle>
-          <DialogDescription>Configure o envio automático de mensagens 365 dias por ano</DialogDescription>
+          <DialogDescription>Configure datas e horários para envio automático</DialogDescription>
         </DialogHeader>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-1">
-          <p className="font-medium flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Envio automático 365 dias por ano</p>
-          <p className="text-green-700 text-xs mt-0.5">As mensagens serão geradas por IA e enviadas via WhatsApp automaticamente nos horários que você definir. Basta criar o agendamento uma única vez!</p>
-        </div>
 
         <div className="space-y-5 py-3">
           {/* Contact Selection */}
@@ -969,6 +1002,41 @@ function CreateScheduleDialog({
             </div>
           </div>
 
+          {/* Calendar Date Picker */}
+          <div>
+            <Label className="text-sm font-medium">Datas de Envio *</Label>
+            <div className="mt-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={`w-full justify-start text-left font-normal ${selectedDates.length > 0 && !recurring ? 'border-burgundy bg-burgundy-50' : ''}`}
+                  >
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    {recurring ? '📅 365 dias (todos os dias)' : selectedDates.length > 0 ? `📅 ${selectedDates.length} dia(s) selecionado(s)` : 'Selecione datas...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="multiple"
+                    selected={selectedDates}
+                    onSelect={handleDateSelect}
+                    className="rounded-md border"
+                  />
+                  <div className="p-3 border-t">
+                    <Button
+                      type="button"
+                      className={`w-full font-semibold ${recurring ? 'bg-green-600 hover:bg-green-700 text-white ring-2 ring-green-300' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                      onClick={handle365Days}
+                    >
+                      📅 365 Dias
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
           {/* Times Selection */}
           <div>
             <Label className="text-sm font-medium">
@@ -1002,16 +1070,26 @@ function CreateScheduleDialog({
               </div>
             )}
           </div>
+
+          {/* Info Box */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm space-y-1.5">
+            <p className="font-medium text-amber-800 flex items-center gap-1.5">
+              <Info className="w-4 h-4" /> Como funciona
+            </p>
+            <p className="text-amber-700">• <strong>365 Dias</strong>: Envia todos os dias do ano automaticamente</p>
+            <p className="text-amber-700">• <strong>Datas específicas</strong>: Selecione no calendário os dias exatos</p>
+            <p className="text-amber-700">• <strong>Prioridade</strong>: a primeira mensagem é enviada hoje no horário escolhido</p>
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button
             onClick={handleCreate}
-            disabled={loading || !contactId || selectedStyles.length === 0}
+            disabled={loading || !contactId || selectedStyles.length === 0 || (!recurring && selectedDates.length === 0)}
             className="bg-burgundy hover:bg-burgundy-dark text-white"
           >
-            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Ativar Envio Automático</>}
+            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Criar Agendamento</>}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1273,7 +1351,7 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                 <CalendarDays className="w-5 h-5 text-burgundy" />
                 Agendamentos Automáticos
               </h3>
-              <p className="text-sm text-graphite-muted">Envio automático 365 dias por ano nos horários configurados</p>
+              <p className="text-sm text-graphite-muted">Envio automático nos horários configurados</p>
             </div>
             <Badge className="bg-green-100 text-green-700 border-green-200">
               <span className="w-2 h-2 rounded-full bg-green-500 mr-1.5 animate-pulse" />
@@ -1291,12 +1369,17 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                           <UserIcon className="w-4 h-4 text-burgundy" />
                         </div>
                         <p className="font-semibold text-graphite truncate">{s.contactName}</p>
-                        {s.active && (
-                          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
-                            🔔 Automático
-                          </Badge>
-                        )}
-                        {!s.active && (
+                        {s.active ? (
+                          s.recurring ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                              📅 365 dias/ano
+                            </Badge>
+                          ) : s.selectedDates.length > 0 ? (
+                            <Badge className="bg-burgundy/10 text-burgundy border-burgundy/20 text-xs">
+                              📅 {s.selectedDates.length} dia(s) selecionado(s)
+                            </Badge>
+                          ) : null
+                        ) : (
                           <Badge variant="secondary" className="text-xs">Pausado</Badge>
                         )}
                       </div>
@@ -1307,7 +1390,7 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                           </Badge>
                         ))}
                       </div>
-                      <div className="ml-10 flex items-center gap-4 text-sm text-graphite-muted">
+                      <div className="ml-10 flex items-center gap-4 text-sm text-graphite-muted flex-wrap">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
                           {s.timesPerDay}x ao dia
@@ -1316,11 +1399,24 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                           <CalendarDays className="w-3.5 h-3.5" />
                           {s.sendTimes.join(', ')}
                         </span>
-                        <span className="flex items-center gap-1 text-green-600">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          365 dias/ano
-                        </span>
                       </div>
+                      {!s.recurring && s.selectedDates.length > 0 && (
+                        <div className="ml-10 mt-2 text-xs text-graphite-muted">
+                          <span className="font-medium text-graphite">Datas: </span>
+                          {s.selectedDates.length <= 3 ? (
+                            s.selectedDates.map((d: string) => {
+                              try { return format(new Date(d + 'T12:00:00'), 'dd/MM/yyyy'); } catch { return d; }
+                            }).join(', ')
+                          ) : (
+                            <>
+                              {s.selectedDates.slice(0, 3).map((d: string) => {
+                                try { return format(new Date(d + 'T12:00:00'), 'dd/MM/yyyy'); } catch { return d; }
+                              }).join(', ')}
+                              <span> e mais {s.selectedDates.length - 3}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 ml-3 pt-1">
                       <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
@@ -1340,18 +1436,33 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
 }
 
 /* History Tab */
-function HistoryTab({ history }: { history: MessageHistory[] }) {
+function HistoryTab({ history, onRefresh }: { history: MessageHistory[]; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await onRefresh();
+    setRefreshing(false);
+  };
 
   if (history.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-burgundy/20">
-        <CardContent className="py-12 text-center">
-          <Clock className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
-          <p className="text-graphite-muted font-medium">Nenhum envio ainda</p>
-          <p className="text-sm text-graphite-muted/70">As mensagens enviadas aparecerão aqui</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-graphite">Histórico de Envios</h2>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} /> Atualizar
+          </Button>
+        </div>
+        <Card className="border-dashed border-2 border-burgundy/20">
+          <CardContent className="py-12 text-center">
+            <Clock className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+            <p className="text-graphite-muted font-medium">Nenhum envio ainda</p>
+            <p className="text-sm text-graphite-muted/70">As mensagens enviadas aparecerão aqui</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -1363,47 +1474,58 @@ function HistoryTab({ history }: { history: MessageHistory[] }) {
   };
 
   return (
-    <ScrollArea className="max-h-[70vh]">
-      <div className="space-y-3">
-        {history.map((msg) => {
-          const st = statusConfig[msg.status] || statusConfig.pending;
-          return (
-            <Card key={msg.id} className="border-burgundy/10 hover:shadow-sm transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
-                      <UserIcon className="w-4 h-4 text-burgundy" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-graphite truncate">{msg.contactName}</p>
-                      <p className="text-xs text-graphite-muted">{new Date(msg.sentAt).toLocaleString('pt-BR')}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge className={`text-xs ${st.className}`}>{st.label}</Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      {styleEmojis[msg.style as MessageStyle] || '💬'} {styleLabels[msg.style as MessageStyle] || msg.style}
-                    </Badge>
-                  </div>
-                </div>
-                <p
-                  className={`text-sm text-graphite-muted leading-relaxed cursor-pointer ${expanded === msg.id ? '' : 'line-clamp-2'}`}
-                  onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
-                >
-                  {msg.message}
-                </p>
-                {expanded === msg.id && (
-                  <Button variant="link" size="sm" onClick={() => setExpanded(null)} className="text-burgundy p-0 h-auto mt-1">
-                    Mostrar menos
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-graphite">Histórico de Envios</h2>
+          <p className="text-sm text-graphite-muted">{history.length} mensagem(ns) enviada(s)</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+          <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} /> Atualizar
+        </Button>
       </div>
-    </ScrollArea>
+      <ScrollArea className="max-h-[70vh]">
+        <div className="space-y-3">
+          {history.map((msg) => {
+            const st = statusConfig[msg.status] || statusConfig.pending;
+            return (
+              <Card key={msg.id} className="border-burgundy/10 hover:shadow-sm transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+                        <UserIcon className="w-4 h-4 text-burgundy" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-graphite truncate">{msg.contactName}</p>
+                        <p className="text-xs text-graphite-muted">{new Date(msg.sentAt).toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge className={`text-xs ${st.className}`}>{st.label}</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {styleEmojis[msg.style as MessageStyle] || '💬'} {styleLabels[msg.style as MessageStyle] || msg.style}
+                      </Badge>
+                    </div>
+                  </div>
+                  <p
+                    className={`text-sm text-graphite-muted leading-relaxed cursor-pointer ${expanded === msg.id ? '' : 'line-clamp-2'}`}
+                    onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
+                  >
+                    {msg.message}
+                  </p>
+                  {expanded === msg.id && (
+                    <Button variant="link" size="sm" onClick={() => setExpanded(null)} className="text-burgundy p-0 h-auto mt-1">
+                      Mostrar menos
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 

@@ -40,6 +40,8 @@ export interface Schedule {
   messageStyles: MessageStyle[];
   timesPerDay: number;
   sendTimes: string[];
+  recurring: boolean;       // true = 365 dias/ano
+  selectedDates: string[];  // specific dates when recurring=false
   active: boolean;
   createdAt: string;
 }
