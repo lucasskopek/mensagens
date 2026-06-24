@@ -1,0 +1,1291 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { toast } from 'sonner';
+     6→import { useAppStore } from '@/lib/store';
+     7→import type { AppView, Contact, Schedule, MessageHistory, MessageStyle, User, UserConfig } from '@/lib/types';
+     8→import { MESSAGE_STYLES, PRICING_PLANS } from '@/lib/types';
+     9→
+    10→import { Button } from '@/components/ui/button';
+    11→import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+    12→import { Input } from '@/components/ui/input';
+    13→import { Label } from '@/components/ui/label';
+    14→import { Badge } from '@/components/ui/badge';
+    15→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    16→import { Switch } from '@/components/ui/switch';
+    17→import { Separator } from '@/components/ui/separator';
+    18→import { Progress } from '@/components/ui/progress';
+    19→import { ScrollArea } from '@/components/ui/scroll-area';
+    20→import { Checkbox } from '@/components/ui/checkbox';
+    21→import { Skeleton } from '@/components/ui/skeleton';
+    22→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    23→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    24→import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+    25→import {
+    26→  Heart, MessageCircle, Clock, User, Settings, LogOut, Plus, Trash2, Send,
+    27→  Check, X, ChevronRight, Star, Zap, Shield, Crown, Sparkles, Eye, EyeOff,
+    28→  ChevronLeft, Play, Pause, Info, Gift, ArrowRight, Phone, Mail, Lock,
+    29→  Loader2, HeartHandshake, Copy, CheckCircle2, AlertCircle, RefreshCw,
+    30→  Package, CreditCard, CalendarDays
+    31→} from 'lucide-react';
+    32→
+    33→const pageVariants = {
+    34→  initial: { opacity: 0, y: 20 },
+    35→  animate: { opacity: 1, y: 0 },
+    36→  exit: { opacity: 0, y: -20 },
+    37→};
+    38→
+    39→const stagger = {
+    40→  animate: { transition: { staggerChildren: 0.08 } },
+    41→};
+    42→
+    43→const fadeUp = {
+    44→  initial: { opacity: 0, y: 20 },
+    45→  animate: { opacity: 1, y: 0 },
+    46→};
+    47→
+    48→function formatPhone(value: string): string {
+    49→  const digits = value.replace(/\D/g, '').slice(0, 11);
+    50→  if (digits.length <= 2) return `(${digits}`;
+    51→  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    52→  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    53→}
+    54→
+    55→function parsePhoneToDigits(value: string): string {
+    56→  return value.replace(/\D/g, '');
+    57→}
+    58→
+    59→const styleLabels: Record<MessageStyle, string> = {
+    60→  romantic: 'Romântica',
+    61→  spicy: 'Apimentada',
+    62→  playful: 'Brincalhona',
+    63→  serious: 'Séria',
+    64→};
+    65→
+    66→const styleEmojis: Record<MessageStyle, string> = {
+    67→  romantic: '💕',
+    68→  spicy: '🔥',
+    69→  playful: '😊',
+    70→  serious: '🤝',
+    71→};
+    72→
+    73→/* ─────────────────── LANDING PAGE ─────────────────── */
+    74→function LandingPage() {
+    75→  const { setView, setShowPricing, showPricing } = useAppStore();
+    76→  const [userName, setUserName] = useState('');
+    77→  const [contactName, setContactName] = useState('');
+    78→  const [contactPhone, setContactPhone] = useState('');
+    79→  const [sendTime, setSendTime] = useState('08:00');
+    80→  const [style, setStyle] = useState<MessageStyle>('romantic');
+    81→  const [loading, setLoading] = useState(false);
+    82→  const [generatedMsg, setGeneratedMsg] = useState('');
+    83→  const [showResult, setShowResult] = useState(false);
+    84→
+    85→  const handleFreeTest = async () => {
+    86→    if (!userName || !contactName || !contactPhone) {
+    87→      toast.error('Preencha todos os campos obrigatórios');
+    88→      return;
+    89→    }
+    90→    if (parsePhoneToDigits(contactPhone).length < 10) {
+    91→      toast.error('Insira um número de WhatsApp válido');
+    92→      return;
+    93→    }
+    94→    setLoading(true);
+    95→    try {
+    96→      const res = await fetch('/api/free-test', {
+    97→        method: 'POST',
+    98→        headers: { 'Content-Type': 'application/json' },
+    99→        body: JSON.stringify({ userName, contactName, contactPhone, sendTime, style }),
+   100→      });
+   101→      const data = await res.json();
+   102→      if (data.error) throw new Error(data.error);
+   103→      setGeneratedMsg(data.message);
+   104→      setShowResult(true);
+   105→      toast.success('Mensagem gerada com sucesso! Seu amor vai adorar! ❤️');
+   106→    } catch (err) {
+   107→      toast.error(err instanceof Error ? err.message : 'Erro ao gerar mensagem');
+   108→    } finally {
+   109→      setLoading(false);
+   110→    }
+   111→  };
+   112→
+   113→  return (
+   114→    <div className="min-h-screen flex flex-col">
+   115→      {/* Header */}
+   116→      <header className="sticky top-0 z-50 glass-burgundy">
+   117→        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+   118→          <div className="flex items-center gap-2">
+   119→            <Heart className="w-7 h-7 text-burgundy animate-pulse-heart" fill="#722F37" />
+   120→            <span className="text-xl font-bold text-gradient-burgundy">WhatsRomance</span>
+   121→          </div>
+   122→          <nav className="flex items-center gap-2 sm:gap-4">
+   123→            <Button variant="ghost" onClick={() => setView('auth')} className="text-graphite hover:text-burgundy hover:bg-burgundy-50">
+   124→              <User className="w-4 h-4 sm:mr-2" />
+   125→              <span className="hidden sm:inline">Entrar</span>
+   126→            </Button>
+   127→            <Button
+   128→              onClick={() => document.getElementById('free-test')?.scrollIntoView({ behavior: 'smooth' })}
+   129→              className="bg-burgundy hover:bg-burgundy-dark text-white"
+   130→            >
+   131→              <Gift className="w-4 h-4 mr-2" />
+   132→              Teste Grátis
+   133→            </Button>
+   134→          </nav>
+   135→        </div>
+   136→      </header>
+   137→
+   138→      <main className="flex-1">
+   139→        {/* Hero */}
+   140→        <section className="relative overflow-hidden py-16 sm:py-24 lg:py-32">
+   141→          <div className="absolute inset-0 bg-gradient-to-b from-burgundy-50 via-rose-pastel-light to-background" />
+   142→          <div className="absolute top-20 left-10 text-burgundy-100 text-6xl opacity-30 animate-float">💕</div>
+   143→          <div className="absolute top-40 right-20 text-burgundy-100 text-5xl opacity-20 animate-float" style={{ animationDelay: '1s' }}>❤️</div>
+   144→          <div className="absolute bottom-20 left-1/4 text-burgundy-100 text-4xl opacity-25 animate-float" style={{ animationDelay: '2s' }}>🌹</div>
+   145→
+   146→          <div className="relative max-w-4xl mx-auto px-4 text-center">
+   147→            <motion.div variants={stagger} initial="initial" animate="animate">
+   148→              <motion.div variants={fadeUp}>
+   149→                <Badge className="mb-6 bg-burgundy/10 text-burgundy border-burgundy/20 hover:bg-burgundy/15 px-4 py-1.5 text-sm">
+   150→                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+   151→                  IA Especialista em Relacionamentos
+   152→                </Badge>
+   153→              </motion.div>
+   154→
+   155→              <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-bold text-graphite leading-tight mb-6">
+   156→                Deixe que nossa IA cuide do{' '}
+   157→                <span className="text-gradient-burgundy">romance</span> por você.
+   158→              </motion.h1>
+   159→
+   160→              <motion.p variants={fadeUp} className="text-lg sm:text-xl text-graphite-muted max-w-2xl mx-auto mb-10">
+   161→                Mensagens únicas, automatizadas e personalizadas para o seu amor,{' '}
+   162→                <strong className="text-graphite">365 dias por ano.</strong>
+   163→              </motion.p>
+   164→
+   165→              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center">
+   166→                <Button
+   167→                  size="lg"
+   168→                  onClick={() => document.getElementById('free-test')?.scrollIntoView({ behavior: 'smooth' })}
+   169→                  className="bg-burgundy hover:bg-burgundy-dark text-white text-lg px-8 py-6 rounded-xl shadow-lg shadow-burgundy/20"
+   170→                >
+   171→                  <Gift className="w-5 h-5 mr-2" />
+   172→                  Teste Grátis Agora
+   173→                </Button>
+   174→                <Button
+   175→                  size="lg"
+   176→                  variant="outline"
+   177→                  onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+   178→                  className="border-burgundy/30 text-burgundy hover:bg-burgundy-50 text-lg px-8 py-6 rounded-xl"
+   179→                >
+   180→                  <CreditCard className="w-5 h-5 mr-2" />
+   181→                  Ver Planos
+   182→                </Button>
+   183→              </motion.div>
+   184→
+   185→              <motion.div variants={fadeUp} className="mt-12 flex flex-wrap justify-center gap-6 text-sm text-graphite-muted">
+   186→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Mensagens 100% únicas</div>
+   187→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Anti-repetição IA</div>
+   188→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> 4 estilos disponíveis</div>
+   189→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Agendamento fácil</div>
+   190→              </motion.div>
+   191→            </motion.div>
+   192→          </div>
+   193→        </section>
+   194→
+   195→        {/* Free Test Section */}
+   196→        <section id="free-test" className="py-16 sm:py-24">
+   197→          <div className="max-w-2xl mx-auto px-4">
+   198→            <motion.div
+   199→              initial={{ opacity: 0, y: 30 }}
+   200→              whileInView={{ opacity: 1, y: 0 }}
+   201→              viewport={{ once: true }}
+   202→              transition={{ duration: 0.5 }}
+   203→            >
+   204→              <Card className="shadow-xl border-burgundy/10 overflow-hidden">
+   205→                <CardHeader className="bg-gradient-to-r from-burgundy to-burgundy-light text-white text-center pb-6">
+   206→                  <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+   207→                    <Gift className="w-7 h-7" />
+   208→                  </div>
+   209→                  <CardTitle className="text-2xl">Teste Grátis</CardTitle>
+   210→                  <CardDescription className="text-white/80">
+   211→                    Veja a mágica acontecer — sem compromisso
+   212→                  </CardDescription>
+   213→                </CardHeader>
+   214→                <CardContent className="p-6 space-y-4">
+   215→                  {showResult ? (
+   216→                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+   217→                      <div className="text-center mb-4">
+   218→                        <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+   219→                        <h3 className="font-semibold text-lg text-graphite">Mensagem Gerada!</h3>
+   220→                        <p className="text-sm text-graphite-muted">Veja como a IA criou algo especial:</p>
+   221→                      </div>
+   222→                      <div className="bg-rose-pastel-light rounded-lg p-4 border border-burgundy/10">
+   223→                        <p className="text-graphite leading-relaxed whitespace-pre-wrap">{generatedMsg}</p>
+   224→                      </div>
+   225→                      <div className="flex flex-col sm:flex-row gap-3">
+   226→                        <Button onClick={() => { setShowResult(false); setGeneratedMsg(''); }} variant="outline" className="flex-1">
+   227→                          <RefreshCw className="w-4 h-4 mr-2" /> Gerar Outra
+   228→                        </Button>
+   229→                        <Button onClick={() => { setShowPricing(true); setView('landing'); setTimeout(() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white">
+   230→                          <ArrowRight className="w-4 h-4 mr-2" /> Ver Planos
+   231→                        </Button>
+   232→                      </div>
+   233→                    </motion.div>
+   234→                  ) : (
+   235→                    <div className="space-y-4">
+   236→                      <div>
+   237→                        <Label htmlFor="userName">Seu Nome *</Label>
+   238→                        <Input id="userName" placeholder="Como você se chama?" value={userName} onChange={(e) => setUserName(e.target.value)} className="mt-1.5" />
+   239→                      </div>
+   240→                      <div>
+   241→                        <Label htmlFor="contactName">Nome do seu Amor *</Label>
+   242→                        <Input id="contactName" placeholder="O nome de quem vai receber" value={contactName} onChange={(e) => setContactName(e.target.value)} className="mt-1.5" />
+   243→                      </div>
+   244→                      <div>
+   245→                        <Label htmlFor="contactPhone">WhatsApp do Destinatário *</Label>
+   246→                        <div className="relative mt-1.5">
+   247→                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   248→                          <Input id="contactPhone" placeholder="(11) 99999-9999" value={contactPhone} onChange={(e) => setContactPhone(formatPhone(e.target.value))} className="pl-10" />
+   249→                        </div>
+   250→                      </div>
+   251→                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   252→                        <div>
+   253→                          <Label htmlFor="sendTime">Horário de Disparo</Label>
+   254→                          <div className="relative mt-1.5">
+   255→                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   256→                            <Input id="sendTime" type="time" value={sendTime} onChange={(e) => setSendTime(e.target.value)} className="pl-10" />
+   257→                          </div>
+   258→                        </div>
+   259→                        <div>
+   260→                          <Label>Tom da Mensagem</Label>
+   261→                          <Select value={style} onValueChange={(v) => setStyle(v as MessageStyle)}>
+   262→                            <SelectTrigger className="mt-1.5">
+   263→                              <SelectValue />
+   264→                            </SelectTrigger>
+   265→                            <SelectContent>
+   266→                              {MESSAGE_STYLES.map((s) => (
+   267→                                <SelectItem key={s.value} value={s.value}>
+   268→                                  {s.emoji} {s.label}
+   269→                                </SelectItem>
+   270→                              ))}
+   271→                            </SelectContent>
+   272→                          </Select>
+   273→                        </div>
+   274→                      </div>
+   275→                      <Button
+   276→                        onClick={handleFreeTest}
+   277→                        disabled={loading}
+   278→                        className="w-full bg-burgundy hover:bg-burgundy-dark text-white py-6 text-lg rounded-xl shadow-lg shadow-burgundy/20"
+   279→                      >
+   280→                        {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Gerando...</> : <><Send className="w-5 h-5 mr-2" /> Agendar Mensagem Grátis</>}
+   281→                      </Button>
+   282→                    </div>
+   283→                  )}
+   284→                </CardContent>
+   285→              </Card>
+   286→            </motion.div>
+   287→          </div>
+   288→        </section>
+   289→
+   290→        {/* Pricing Section */}
+   291→        <section id="pricing" className="py-16 sm:py-24 bg-gradient-to-b from-background via-burgundy-50/50 to-background">
+   292→          <div className="max-w-6xl mx-auto px-4">
+   293→            <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
+   294→              <h2 className="text-3xl sm:text-4xl font-bold text-graphite mb-4">
+   295→                Escolha o Plano <span className="text-gradient-burgundy">Perfeito</span>
+   296→              </h2>
+   297→              <p className="text-graphite-muted max-w-xl mx-auto">
+   298→                Comece com o teste grátis. Depois, escolha o plano que melhor se adapta à sua relação.
+   299→              </p>
+   300→            </motion.div>
+   301→
+   302→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+   303→              {PRICING_PLANS.map((plan, i) => (
+   304→                <motion.div
+   305→                  key={plan.id}
+   306→                  initial={{ opacity: 0, y: 30 }}
+   307→                  whileInView={{ opacity: 1, y: 0 }}
+   308→                  viewport={{ once: true }}
+   309→                  transition={{ delay: i * 0.1 }}
+   310→                >
+   311→                  <Card className={`relative h-full flex flex-col ${plan.popular ? 'border-2 border-burgundy shadow-xl shadow-burgundy/10' : 'border-burgundy/10'} hover:shadow-lg transition-shadow`}>
+   312→                    {plan.popular && (
+   313→                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+   314→                        <Badge className="bg-burgundy text-white px-3 py-1 shadow-md">
+   315→                          <Crown className="w-3 h-3 mr-1" /> Melhor Valor
+   316→                        </Badge>
+   317→                      </div>
+   318→                    )}
+   319→                    <CardHeader className="pb-3">
+   320→                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+   321→                      <CardDescription className="text-xs">{plan.period}</CardDescription>
+   322→                    </CardHeader>
+   323→                    <CardContent className="flex-1 space-y-4">
+   324→                      <div>
+   325→                        <span className="text-3xl font-bold text-graphite">{plan.totalPrice}</span>
+   326→                        {plan.credits > 0 && (
+   327→                          <p className="text-sm text-graphite-muted mt-1">{plan.credits} mensagens incluídas</p>
+   328→                        )}
+   329→                        <p className="text-sm font-medium text-burgundy mt-1">
+   330→                          R$ {plan.pricePerMsg.toFixed(2).replace('.', ',')} por mensagem
+   331→                        </p>
+   332→                      </div>
+   333→                      <Separator />
+   334→                      <ul className="space-y-2">
+   335→                        {plan.features.map((f) => (
+   336→                          <li key={f} className="flex items-start gap-2 text-sm text-graphite-muted">
+   337→                            <Check className="w-4 h-4 text-burgundy mt-0.5 shrink-0" />
+   338→                            {f}
+   339→                          </li>
+   340→                        ))}
+   341→                      </ul>
+   342→                    </CardContent>
+   343→                    <CardFooter>
+   344→                      <Button
+   345→                        className={`w-full ${plan.popular ? 'bg-burgundy hover:bg-burgundy-dark text-white' : 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'}`}
+   346→                        onClick={() => setView('auth')}
+   347→                      >
+   348→                        {plan.id === 'avulso' ? 'Recarregar' : 'Assinar Agora'}
+   349→                        <ChevronRight className="w-4 h-4 ml-1" />
+   350→                      </Button>
+   351→                    </CardFooter>
+   352→                  </Card>
+   353→                </motion.div>
+   354→              ))}
+   355→            </div>
+   356→          </div>
+   357→        </section>
+   358→      </main>
+   359→
+   360→      {/* Footer */}
+   361→      <footer className="mt-auto border-t border-burgundy/10 bg-white py-8">
+   362→        <div className="max-w-7xl mx-auto px-4 text-center">
+   363→          <div className="flex items-center justify-center gap-2 mb-3">
+   364→            <Heart className="w-5 h-5 text-burgundy" fill="#722F37" />
+   365→            <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
+   366→          </div>
+   367→          <p className="text-sm text-graphite-muted">
+   368→            &copy; 2025 WhatsRomance. Todos os direitos reservados.
+   369→          </p>
+   370→          <p className="text-xs text-graphite-muted/60 mt-2">
+   371→            Feito com ❤️ para fortalecer relacionamentos
+   372→          </p>
+   373→        </div>
+   374→      </footer>
+   375→    </div>
+   376→  );
+   377→}
+   378→
+   379→/* ─────────────────── AUTH PAGE ─────────────────── */
+   380→function AuthPage() {
+   381→  const { setView, setUser, user } = useAppStore();
+   382→  const [mode, setMode] = useState<'login' | 'register'>('login');
+   383→  const [name, setName] = useState('');
+   384→  const [email, setEmail] = useState('');
+   385→  const [password, setPassword] = useState('');
+   386→  const [whatsapp, setWhatsapp] = useState('');
+   387→  const [showPass, setShowPass] = useState(false);
+   388→  const [loading, setLoading] = useState(false);
+   389→
+   390→  const handleSubmit = async (e: React.FormEvent) => {
+   391→    e.preventDefault();
+   392→    if (!name || !email || !password) {
+   393→      toast.error('Preencha todos os campos obrigatórios');
+   394→      return;
+   395→    }
+   396→    setLoading(true);
+   397→    try {
+   398→      const res = await fetch('/api/auth', {
+   399→        method: 'POST',
+   400→        headers: { 'Content-Type': 'application/json' },
+   401→        body: JSON.stringify({ name, email, password, whatsapp: parsePhoneToDigits(whatsapp) || undefined }),
+   402→      });
+   403→      const data = await res.json();
+   404→      if (data.error) throw new Error(data.error);
+   405→
+   406→      const userData: User = {
+   407→        id: data.id,
+   408→        name: data.name,
+   409→        email: data.email,
+   410→        whatsapp: data.whatsapp,
+   411→        isDev: data.isDev,
+   412→        credits: data.credits,
+   413→        createdAt: data.createdAt,
+   414→      };
+   415→      setUser(userData);
+   416→
+   417→      if (data.isDev) {
+   418→        toast.success('Modo Desenvolvedor ativado! Créditos ilimitados. 👑');
+   419→        setView('dashboard');
+   420→      } else {
+   421→        toast.success(`Bem-vindo(a), ${data.name}! 💕`);
+   422→        setView('onboarding');
+   423→      }
+   424→    } catch (err) {
+   425→      toast.error(err instanceof Error ? err.message : 'Erro ao fazer login');
+   426→    } finally {
+   427→      setLoading(false);
+   428→    }
+   429→  };
+   430→
+   431→  return (
+   432→    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-burgundy-50 via-rose-pastel-light to-background px-4 py-12">
+   433→      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+   434→        <Card className="shadow-xl border-burgundy/10">
+   435→          <CardHeader className="text-center pb-2">
+   436→            <div className="mx-auto w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mb-3">
+   437→              <Heart className="w-7 h-7 text-burgundy" fill="#722F37" />
+   438→            </div>
+   439→            <CardTitle className="text-2xl text-gradient-burgundy">WhatsRomance</CardTitle>
+   440→            <CardDescription>Entre na sua conta ou crie uma nova</CardDescription>
+   441→          </CardHeader>
+   442→          <CardContent>
+   443→            <Tabs value={mode} onValueChange={(v) => setMode(v as 'login' | 'register')} className="mb-6">
+   444→              <TabsList className="grid w-full grid-cols-2">
+   445→                <TabsTrigger value="login">Entrar</TabsTrigger>
+   446→                <TabsTrigger value="register">Cadastrar</TabsTrigger>
+   447→              </TabsList>
+   448→            </Tabs>
+   449→
+   450→            <form onSubmit={handleSubmit} className="space-y-4">
+   451→              {mode === 'register' && (
+   452→                <div>
+   453→                  <Label htmlFor="name">Nome Completo</Label>
+   454→                  <div className="relative mt-1.5">
+   455→                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   456→                    <Input id="name" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" />
+   457→                  </div>
+   458→                </div>
+   459→              )}
+   460→              <div>
+   461→                <Label htmlFor="email">E-mail</Label>
+   462→                <div className="relative mt-1.5">
+   463→                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   464→                  <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" />
+   465→                </div>
+   466→              </div>
+   467→              {mode === 'register' && (
+   468→                <div>
+   469→                  <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
+   470→                  <div className="relative mt-1.5">
+   471→                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   472→                    <Input id="whatsapp" placeholder="(11) 99999-9999" value={whatsapp} onChange={(e) => setWhatsapp(formatPhone(e.target.value))} className="pl-10" />
+   473→                  </div>
+   474→                </div>
+   475→              )}
+   476→              <div>
+   477→                <Label htmlFor="password">Senha</Label>
+   478→                <div className="relative mt-1.5">
+   479→                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   480→                  <Input id="password" type={showPass ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10" />
+   481→                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite-muted hover:text-graphite">
+   482→                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   483→                  </button>
+   484→                </div>
+   485→              </div>
+   486→              <Button type="submit" disabled={loading} className="w-full bg-burgundy hover:bg-burgundy-dark text-white py-6">
+   487→                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Aguarde...</> : mode === 'login' ? 'Entrar' : 'Criar Conta'}
+   488→              </Button>
+   489→            </form>
+   490→          </CardContent>
+   491→          <CardFooter className="justify-center">
+   492→            <Button variant="link" onClick={() => setView('landing')} className="text-graphite-muted">
+   493→              <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao início
+   494→            </Button>
+   495→          </CardFooter>
+   496→        </Card>
+   497→      </motion.div>
+   498→    </div>
+   499→  );
+   500→}
+   501→
+   502→/* ─────────────────── ONBOARDING PAGE ─────────────────── */
+   503→function OnboardingPage() {
+   504→  const { user, setView, setConfig } = useAppStore();
+   505→  const [step, setStep] = useState(1);
+   506→  const [loading, setLoading] = useState(false);
+   507→
+   508→  // Supabase
+   509→  const [supabaseUrl, setSupabaseUrl] = useState('');
+   510→  const [supabaseKey, setSupabaseKey] = useState('');
+   511→  // Vercel
+   512→  const [vercelToken, setVercelToken] = useState('');
+   513→  const [vercelProjectId, setVercelProjectId] = useState('');
+   514→  // WhatsApp
+   515→  const [whatsappApiUrl, setWhatsappApiUrl] = useState('');
+   516→  const [whatsappApiToken, setWhatsappApiToken] = useState('');
+   517→  const [whatsappInstanceName, setWhatsappInstanceName] = useState('');
+   518→
+   519→  const handleSave = async () => {
+   520→    if (!user) return;
+   521→    setLoading(true);
+   522→    try {
+   523→      const configData: UserConfig = {
+   524→        supabaseUrl, supabaseKey, vercelToken, vercelProjectId,
+   525→        whatsappApiUrl, whatsappApiToken, whatsappInstanceName,
+   526→        setupCompleted: true,
+   527→      };
+   528→      const res = await fetch('/api/onboarding', {
+   529→        method: 'POST',
+   530→        headers: { 'Content-Type': 'application/json' },
+   531→        body: JSON.stringify({ userId: user.id, ...configData }),
+   532→      });
+   533→      const data = await res.json();
+   534→      if (data.error) throw new Error(data.error);
+   535→      setConfig(configData);
+   536→      toast.success('Configuração salva com sucesso! 🎉');
+   537→      setView('dashboard');
+   538→    } catch (err) {
+   539→      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+   540→    } finally {
+   541→      setLoading(false);
+   542→    }
+   543→  };
+   544→
+   545→  const handleSkip = () => {
+   546→    if (!user) return;
+   547→    const configData: UserConfig = {
+   548→      supabaseUrl: 'https://demo.supabase.co',
+   549→      supabaseKey: 'demo-key',
+   550→      vercelToken: 'demo-token',
+   551→      vercelProjectId: 'demo-project',
+   552→      whatsappApiUrl: 'https://demo.evolution-api.com',
+   553→      whatsappApiToken: 'demo-token',
+   554→      whatsappInstanceName: 'demo-instance',
+   555→      setupCompleted: true,
+   556→    };
+   557→    setConfig(configData);
+   558→    toast.info('Configuração de demonstração aplicada. Configure depois no painel.');
+   559→    setView('dashboard');
+   560→  };
+   561→
+   562→  const steps = [
+   563→    { num: 1, label: 'Supabase' },
+   564→    { num: 2, label: 'Vercel' },
+   565→    { num: 3, label: 'WhatsApp' },
+   566→  ];
+   567→
+   568→  return (
+   569→    <div className="min-h-screen flex flex-col bg-gradient-to-br from-burgundy-50 via-background to-rose-pastel-light">
+   570→      {/* Header */}
+   571→      <header className="glass-burgundy">
+   572→        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+   573→          <div className="flex items-center gap-2">
+   574→            <Heart className="w-6 h-6 text-burgundy" fill="#722F37" />
+   575→            <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
+   576→          </div>
+   577→          <Button variant="ghost" size="sm" onClick={handleSkip} className="text-graphite-muted">
+   578→            Pular Configuração <ChevronRight className="w-4 h-4 ml-1" />
+   579→          </Button>
+   580→        </div>
+   581→      </header>
+   582→
+   583→      <main className="flex-1 flex items-center justify-center px-4 py-8">
+   584→        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl">
+   585→          {/* Step indicator */}
+   586→          <div className="flex items-center justify-center gap-4 mb-8">
+   587→            {steps.map((s, i) => (
+   588→              <div key={s.num} className="flex items-center gap-2">
+   589→                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${step === s.num ? 'bg-burgundy text-white' : step > s.num ? 'bg-burgundy/20 text-burgundy' : 'bg-muted text-graphite-muted'}`}>
+   590→                  {step > s.num ? <Check className="w-5 h-5" /> : s.num}
+   591→                </div>
+   592→                <span className={`text-sm hidden sm:inline ${step === s.num ? 'text-burgundy font-medium' : 'text-graphite-muted'}`}>{s.label}</span>
+   593→                {i < steps.length - 1 && <div className={`w-8 sm:w-16 h-0.5 ${step > s.num ? 'bg-burgundy' : 'bg-muted'}`} />}
+   594→              </div>
+   595→            ))}
+   596→          </div>
+   597→
+   598→          <AnimatePresence mode="wait">
+   599→            {step === 1 && (
+   600→              <motion.div key="step1" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+   601→                <Card className="shadow-xl border-burgundy/10">
+   602→                  <CardHeader>
+   603→                    <div className="flex items-center gap-3">
+   604→                      <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center"><Shield className="w-5 h-5 text-emerald-600" /></div>
+   605→                      <div>
+   606→                        <CardTitle>Conexão com Supabase</CardTitle>
+   607→                        <CardDescription>Banco de dados da sua aplicação</CardDescription>
+   608→                      </div>
+   609→                    </div>
+   610→                  </CardHeader>
+   611→                  <CardContent className="space-y-4">
+   612→                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   613→                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar suas credenciais:</p>
+   614→                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   615→                        <li>Acesse o painel do seu projeto no <strong>Supabase</strong> (supabase.com).</li>
+   616→                        <li>No menu lateral esquerdo, clique no ícone de engrenagem (<strong>Project Settings</strong>).</li>
+   617→                        <li>Vá até a opção <strong>&quot;API&quot;</strong>.</li>
+   618→                        <li>Localize e copie os campos <strong>&quot;Project URL&quot;</strong> e <strong>&quot;Project API anon key&quot;</strong>.</li>
+   619→                      </ol>
+   620→                    </div>
+   621→                    <div>
+   622→                      <Label>Supabase URL</Label>
+   623→                      <Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="mt-1.5" />
+   624→                    </div>
+   625→                    <div>
+   626→                      <Label>Supabase Anon Key</Label>
+   627→                      <Input placeholder="eyJhbGciOiJIUzI1NiIs..." value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="mt-1.5" />
+   628→                    </div>
+   629→                  </CardContent>
+   630→                  <CardFooter className="flex justify-between">
+   631→                    <Button variant="ghost" onClick={() => setView('landing')}><ChevronLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+   632→                    <Button onClick={() => setStep(2)} className="bg-burgundy hover:bg-burgundy-dark text-white">Próximo <ChevronRight className="w-4 h-4 ml-1" /></Button>
+   633→                  </CardFooter>
+   634→                </Card>
+   635→              </motion.div>
+   636→            )}
+   637→
+   638→            {step === 2 && (
+   639→              <motion.div key="step2" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+   640→                <Card className="shadow-xl border-burgundy/10">
+   641→                  <CardHeader>
+   642→                    <div className="flex items-center gap-3">
+   643→                      <div className="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center"><Zap className="w-5 h-5 text-gray-700" /></div>
+   644→                      <div>
+   645→                        <CardTitle>Pipeline de Deploy (Vercel)</CardTitle>
+   646→                        <CardDescription>Hospedagem e deploy do projeto</CardDescription>
+   647→                      </div>
+   648→                    </div>
+   649→                  </CardHeader>
+   650→                  <CardContent className="space-y-4">
+   651→                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   652→                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
+   653→                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   654→                        <li>Acesse o painel da <strong>Vercel</strong> (vercel.com) e clique na sua foto de perfil no canto superior direito para ir em <strong>&quot;Settings&quot;</strong>.</li>
+   655→                        <li>No menu esquerdo, vá em <strong>&quot;Tokens&quot;</strong> e clique em <strong>&quot;Create&quot;</strong> para gerar um token.</li>
+   656→                        <li>Para obter o Project ID, entre no repositório do seu projeto, clique na aba <strong>&quot;Settings&quot;</strong> e copie o ID listado em <strong>&quot;General&quot;</strong>.</li>
+   657→                      </ol>
+   658→                    </div>
+   659→                    <div>
+   660→                      <Label>Vercel Auth Token</Label>
+   661→                      <Input placeholder="vercel_xxxxxxxxxxxxx" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} className="mt-1.5" />
+   662→                    </div>
+   663→                    <div>
+   664→                      <Label>Vercel Project ID</Label>
+   665→                      <Input placeholder="prj_xxxxxxxxxxxxx" value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} className="mt-1.5" />
+   666→                    </div>
+   667→                  </CardContent>
+   668→                  <CardFooter className="flex justify-between">
+   669→                    <Button variant="ghost" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
+   670→                    <Button onClick={() => setStep(3)} className="bg-burgundy hover:bg-burgundy-dark text-white">Próximo <ChevronRight className="w-4 h-4 ml-1" /></Button>
+   671→                  </CardFooter>
+   672→                </Card>
+   673→              </motion.div>
+   674→            )}
+   675→
+   676→            {step === 3 && (
+   677→              <motion.div key="step3" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+   678→                <Card className="shadow-xl border-burgundy/10">
+   679→                  <CardHeader>
+   680→                    <div className="flex items-center gap-3">
+   681→                      <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-green-600" /></div>
+   682→                      <div>
+   683→                        <CardTitle>Gateway do WhatsApp</CardTitle>
+   684→                        <CardDescription>API para envio de mensagens</CardDescription>
+   685→                      </div>
+   686→                    </div>
+   687→                  </CardHeader>
+   688→                  <CardContent className="space-y-4">
+   689→                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   690→                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
+   691→                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   692→                        <li>Acesse o painel do seu provedor de API do WhatsApp (<strong>Evolution API</strong> ou <strong>Z-API</strong>).</li>
+   693→                        <li>Crie ou selecione uma <strong>Instância ativa</strong> e faça a leitura do QR Code com o seu WhatsApp.</li>
+   694→                        <li>Copie a <strong>&quot;API URL&quot;</strong> do servidor e o seu <strong>&quot;Global Token / ApiKey&quot;</strong> de autenticação.</li>
+   695→                      </ol>
+   696→                    </div>
+   697→                    <div>
+   698→                      <Label>WhatsApp API URL</Label>
+   699→                      <Input placeholder="https://api.evolution-api.com" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
+   700→                    </div>
+   701→                    <div>
+   702→                      <Label>API Token (ApiKey)</Label>
+   703→                      <Input placeholder="xxxxxxxxxxxxxxxx" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
+   704→                    </div>
+   705→                    <div>
+   706→                      <Label>Instance Name</Label>
+   707→                      <Input placeholder="minha-instancia-whatsapp" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1.5" />
+   708→                    </div>
+   709→                  </CardContent>
+   710→                  <CardFooter className="flex justify-between">
+   711→                    <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
+   712→                    <Button onClick={handleSave} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white">
+   713→                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar e Continuar</>}
+   714→                    </Button>
+   715→                  </CardFooter>
+   716→                </Card>
+   717→              </motion.div>
+   718→            )}
+   719→          </AnimatePresence>
+   720→        </motion.div>
+   721→      </main>
+   722→    </div>
+   723→  );
+   724→}
+   725→
+   726→/* ─────────────────── DASHBOARD ─────────────────── */
+   727→function Dashboard() {
+   728→  const { user, isDevMode, logout, setView } = useAppStore();
+   729→  const [contacts, setContacts] = useState<Contact[]>([]);
+   730→  const [schedules, setSchedules] = useState<Schedule[]>([]);
+   731→  const [history, setHistory] = useState<MessageHistory[]>([]);
+   732→  const [loading, setLoading] = useState(true);
+   733→
+   734→  const loadData = useCallback(async () => {
+   735→    if (!user) return;
+   736→    try {
+   737→      const [cRes, sRes, hRes] = await Promise.all([
+   738→        fetch(`/api/contacts?userId=${user.id}`),
+   739→        fetch(`/api/schedules?userId=${user.id}`),
+   740→        fetch(`/api/messages?userId=${user.id}`),
+   741→      ]);
+   742→      const cData = await cRes.json();
+   743→      const sData = await sRes.json();
+   744→      const hData = await hRes.json();
+   745→      setContacts(cData.error ? [] : cData);
+   746→      setSchedules(sData.error ? [] : sData);
+   747→      setHistory(hData.error ? [] : hData);
+   748→    } catch {
+   749→      // silently fail
+   750→    } finally {
+   751→      setLoading(false);
+   752→    }
+   753→  }, [user]);
+   754→
+   755→  useEffect(() => { loadData(); }, [loadData]);
+   756→
+   757→  if (!user) return null;
+   758→
+   759→  return (
+   760→    <div className="min-h-screen flex flex-col bg-gradient-to-b from-burgundy-50/30 to-background">
+   761→      {/* Top Bar */}
+   762→      <header className="sticky top-0 z-50 glass-burgundy">
+   763→        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+   764→          <div className="flex items-center gap-3">
+   765→            <Heart className="w-6 h-6 text-burgundy" fill="#722F37" />
+   766→            <span className="font-bold text-gradient-burgundy hidden sm:inline">WhatsRomance</span>
+   767→          </div>
+   768→          <div className="flex items-center gap-2 sm:gap-4">
+   769→            {isDevMode ? (
+   770→              <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 px-3 py-1">
+   771→                <Crown className="w-3.5 h-3.5 mr-1" /> Créditos Ilimitados [Modo Dev]
+   772→              </Badge>
+   773→            ) : (
+   774→              <CreditBadge userId={user.id} credits={user.credits} onUpdate={loadData} />
+   775→            )}
+   776→            <Button variant="ghost" size="sm" onClick={logout} className="text-graphite-muted hover:text-burgundy">
+   777→              <LogOut className="w-4 h-4 sm:mr-2" />
+   778→              <span className="hidden sm:inline">Sair</span>
+   779→            </Button>
+   780→          </div>
+   781→        </div>
+   782→      </header>
+   783→
+   784→      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 sm:py-8">
+   785→        <Tabs defaultValue="schedules">
+   786→          <TabsList className="grid w-full grid-cols-3 mb-6">
+   787→            <TabsTrigger value="schedules" className="text-xs sm:text-sm">
+   788→              <CalendarDays className="w-4 h-4 sm:mr-1.5" /> Agendamentos
+   789→            </TabsTrigger>
+   790→            <TabsTrigger value="history" className="text-xs sm:text-sm">
+   791→              <Clock className="w-4 h-4 sm:mr-1.5" /> Histórico
+   792→            </TabsTrigger>
+   793→            <TabsTrigger value="settings" className="text-xs sm:text-sm">
+   794→              <Settings className="w-4 h-4 sm:mr-1.5" /> Configurações
+   795→            </TabsTrigger>
+   796→          </TabsList>
+   797→
+   798→          <TabsContent value="schedules">
+   799→            {loading ? (
+   800→              <div className="space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" /></div>
+   801→            ) : (
+   802→              <ScheduleTab contacts={contacts} schedules={schedules} userId={user.id} userName={user.name} isDev={user.isDev} onUpdate={loadData} />
+   803→            )}
+   804→          </TabsContent>
+   805→
+   806→          <TabsContent value="history">
+   807→            {loading ? (
+   808→              <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
+   809→            ) : (
+   810→              <HistoryTab history={history} />
+   811→            )}
+   812→          </TabsContent>
+   813→
+   814→          <TabsContent value="settings">
+   815→            <SettingsTab userId={user.id} />
+   816→          </TabsContent>
+   817→        </Tabs>
+   818→      </main>
+   819→    </div>
+   820→  );
+   821→}
+   822→
+   823→/* Credit Badge */
+   824→function CreditBadge({ userId, credits, onUpdate }: { userId: string; credits: number; onUpdate: () => void }) {
+   825→  const [balance, setBalance] = useState(credits);
+   826→  const [showRecharge, setShowRecharge] = useState(false);
+   827→
+   828→  useEffect(() => {
+   829→    const loadCredits = async () => {
+   830→      try {
+   831→        const res = await fetch(`/api/credits?userId=${userId}`);
+   832→        const data = await res.json();
+   833→        if (data.credits !== undefined) setBalance(data.credits);
+   834→      } catch { /* ignore */ }
+   835→    };
+   836→    loadCredits();
+   837→  }, [userId]);
+   838→
+   839→  const handleRecharge = async (planId: string) => {
+   840→    const plan = PRICING_PLANS.find(p => p.id === planId);
+   841→    if (!plan || !plan.credits) return;
+   842→    try {
+   843→      const res = await fetch('/api/credits/add', {
+   844→        method: 'POST',
+   845→        headers: { 'Content-Type': 'application/json' },
+   846→        body: JSON.stringify({ userId, amount: plan.credits, planName: plan.name }),
+   847→      });
+   848→      const data = await res.json();
+   849→      if (data.error) throw new Error(data.error);
+   850→      setBalance(data.credits);
+   851→      toast.success(`${plan.credits} créditos adicionados! 🎉`);
+   852→      setShowRecharge(false);
+   853→      onUpdate();
+   854→    } catch (err) {
+   855→      toast.error(err instanceof Error ? err.message : 'Erro');
+   856→    }
+   857→  };
+   858→
+   859→  const pct = balance > 0 ? Math.min((balance / 365) * 100, 100) : 0;
+   860→
+   861→  return (
+   862→    <>
+   863→      <Dialog open={showRecharge} onOpenChange={setShowRecharge}>
+   864→        <DialogTrigger asChild>
+   865→          <Button variant="outline" size="sm" className="text-burgundy border-burgundy/30 hover:bg-burgundy-50">
+   866→            <CreditCard className="w-4 h-4 mr-1.5" />
+   867→            <span className="hidden sm:inline">{balance} créditos</span>
+   868→            <span className="sm:hidden">{balance}</span>
+   869→          </Button>
+   870→        </DialogTrigger>
+   871→        <DialogContent className="max-w-lg">
+   872→          <DialogHeader>
+   873→            <DialogTitle>Recarregar Créditos</DialogTitle>
+   874→            <DialogDescription>Escolha um plano para continuar enviando mensagens</DialogDescription>
+   875→          </DialogHeader>
+   876→          <div className="space-y-3 py-4">
+   877→            {PRICING_PLANS.filter(p => p.id !== 'avulso').map(p => (
+   878→              <Card key={p.id} className={`cursor-pointer transition-all hover:shadow-md ${p.popular ? 'border-2 border-burgundy' : ''}`} onClick={() => handleRecharge(p.id)}>
+   879→                <CardContent className="p-4 flex items-center justify-between">
+   880→                  <div>
+   881→                    <p className="font-semibold text-graphite">{p.name}</p>
+   882→                    <p className="text-sm text-graphite-muted">{p.totalPrice} · {p.credits} mensagens</p>
+   883→                  </div>
+   884→                  <Button size="sm" className="bg-burgundy hover:bg-burgundy-dark text-white">Assinar</Button>
+   885→                </CardContent>
+   886→              </Card>
+   887→            ))}
+   888→          </div>
+   889→        </DialogContent>
+   890→      </Dialog>
+   891→      {balance <= 5 && balance > 0 && (
+   892→        <Badge variant="destructive" className="text-xs animate-pulse">Baixo!</Badge>
+   893→      )}
+   894→      {balance === 0 && (
+   895→        <Badge variant="destructive" className="text-xs">Zerado!</Badge>
+   896→      )}
+   897→    </>
+   898→  );
+   899→}
+   900→
+   901→/* Schedule Tab */
+   902→function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }: {
+   903→  contacts: Contact[]; schedules: Schedule[]; userId: string; userName: string; isDev: boolean; onUpdate: () => void;
+   904→}) {
+   905→  const [showAddContact, setShowAddContact] = useState(false);
+   906→  const [newContactName, setNewContactName] = useState('');
+   907→  const [newContactPhone, setNewContactPhone] = useState('');
+   908→  const [scheduleContact, setScheduleContact] = useState<Contact | null>(null);
+   909→  const [genLoading, setGenLoading] = useState(false);
+   910→  const [previewMsg, setPreviewMsg] = useState('');
+   911→
+   912→  const addContact = async () => {
+   913→    if (!newContactName || !newContactPhone) { toast.error('Preencha nome e telefone'); return; }
+   914→    try {
+   915→      const res = await fetch('/api/contacts', {
+   916→        method: 'POST',
+   917→        headers: { 'Content-Type': 'application/json' },
+   918→        body: JSON.stringify({ userId, name: newContactName, phone: parsePhoneToDigits(newContactPhone) }),
+   919→      });
+   920→      const data = await res.json();
+   921→      if (data.error) throw new Error(data.error);
+   922→      toast.success('Contato adicionado! 💕');
+   923→      setNewContactName('');
+   924→      setNewContactPhone('');
+   925→      setShowAddContact(false);
+   926→      onUpdate();
+   927→    } catch (err) {
+   928→      toast.error(err instanceof Error ? err.message : 'Erro');
+   929→    }
+   930→  };
+   931→
+   932→  const deleteContact = async (id: string) => {
+   933→    try {
+   934→      const res = await fetch('/api/contacts', {
+   935→        method: 'DELETE',
+   936→        headers: { 'Content-Type': 'application/json' },
+   937→        body: JSON.stringify({ id, userId }),
+   938→      });
+   939→      const data = await res.json();
+   940→      if (data.error) throw new Error(data.error);
+   941→      toast.success('Contato removido');
+   942→      onUpdate();
+   943→    } catch (err) {
+   944→      toast.error(err instanceof Error ? err.message : 'Erro');
+   945→    }
+   946→  };
+   947→
+   948→  const handleGenerate = async (contact: Contact, style: MessageStyle) => {
+   949→    setGenLoading(true);
+   950→    try {
+   951→      const res = await fetch('/api/messages/generate', {
+   952→        method: 'POST',
+   953→        headers: { 'Content-Type': 'application/json' },
+   954→        body: JSON.stringify({ contactName: contact.name, senderName: userName, style, userId, contactId: contact.id }),
+   955→      });
+   956→      const data = await res.json();
+   957→      if (data.error) throw new Error(data.error);
+   958→      setPreviewMsg(data.message);
+   959→      toast.success('Mensagem gerada! ✨');
+   960→    } catch (err) {
+   961→      toast.error(err instanceof Error ? err.message : 'Erro ao gerar');
+   962→    } finally {
+   963→      setGenLoading(false);
+   964→    }
+   965→  };
+   966→
+   967→  const handleSend = async (contact: Contact, message: string, style: MessageStyle) => {
+   968→    try {
+   969→      const res = await fetch('/api/messages/send', {
+   970→        method: 'POST',
+   971→        headers: { 'Content-Type': 'application/json' },
+   972→        body: JSON.stringify({
+   973→          contactName: contact.name, phoneNumber: contact.phone,
+   974→          message, style, userId, contactId: contact.id,
+   975→        }),
+   976→      });
+   977→      const data = await res.json();
+   978→      if (data.error) throw new Error(data.error);
+   979→      toast.success(data.message);
+   980→      setPreviewMsg('');
+   981→      onUpdate();
+   982→    } catch (err) {
+   983→      toast.error(err instanceof Error ? err.message : 'Erro ao enviar');
+   984→    }
+   985→  };
+   986→
+   987→  const toggleSchedule = async (schedule: Schedule) => {
+   988→    try {
+   989→      const res = await fetch('/api/schedules', {
+   990→        method: 'PUT',
+   991→        headers: { 'Content-Type': 'application/json' },
+   992→        body: JSON.stringify({ id: schedule.id, userId, active: !schedule.active }),
+   993→      });
+   994→      const data = await res.json();
+   995→      if (data.error) throw new Error(data.error);
+   996→      onUpdate();
+   997→    } catch (err) {
+   998→      toast.error(err instanceof Error ? err.message : 'Erro');
+   999→    }
+  1000→  };
+  1001→
+  1002→  return (
+  1003→    <div className="space-y-6">
+  1004→      <div className="flex items-center justify-between">
+  1005→        <div>
+  1006→          <h2 className="text-xl font-bold text-graphite">Seus Contatos</h2>
+  1007→          <p className="text-sm text-graphite-muted">{contacts.length} contato(s) cadastrado(s)</p>
+  1008→        </div>
+  1009→        <Button onClick={() => setShowAddContact(true)} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1010→          <Plus className="w-4 h-4 mr-2" /> Novo Contato
+  1011→        </Button>
+  1012→      </div>
+  1013→
+  1014→      {/* Add Contact Dialog */}
+  1015→      <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
+  1016→        <DialogContent>
+  1017→          <DialogHeader>
+  1018→            <DialogTitle>Novo Contato</DialogTitle>
+  1019→            <DialogDescription>Adicione a pessoa que vai receber mensagens românticas</DialogDescription>
+  1020→          </DialogHeader>
+  1021→          <div className="space-y-4 py-2">
+  1022→            <div>
+  1023→              <Label>Nome do Contato</Label>
+  1024→              <Input placeholder="Nome do seu amor" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="mt-1.5" />
+  1025→            </div>
+  1026→            <div>
+  1027→              <Label>WhatsApp</Label>
+  1028→              <div className="relative mt-1.5">
+  1029→                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+  1030→                <Input placeholder="(11) 99999-9999" value={newContactPhone} onChange={(e) => setNewContactPhone(formatPhone(e.target.value))} className="pl-10" />
+  1031→              </div>
+  1032→            </div>
+  1033→          </div>
+  1034→          <DialogFooter>
+  1035→            <Button variant="outline" onClick={() => setShowAddContact(false)}>Cancelar</Button>
+  1036→            <Button onClick={addContact} className="bg-burgundy hover:bg-burgundy-dark text-white">Adicionar</Button>
+  1037→          </DialogFooter>
+  1038→        </DialogContent>
+  1039→      </Dialog>
+  1040→
+  1041→      {/* Contacts List */}
+  1042→      {contacts.length === 0 ? (
+  1043→        <Card className="border-dashed border-2 border-burgundy/20">
+  1044→          <CardContent className="py-12 text-center">
+  1045→            <Heart className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+  1046→            <p className="text-graphite-muted font-medium">Nenhum contato ainda</p>
+  1047→            <p className="text-sm text-graphite-muted/70">Adicione seu amor para começar a enviar mensagens</p>
+  1048→          </CardContent>
+  1049→        </Card>
+  1050→      ) : (
+  1051→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1052→          {contacts.map((contact) => (
+  1053→            <Card key={contact.id} className="border-burgundy/10 hover:shadow-md transition-shadow">
+  1054→              <CardContent className="p-4">
+  1055→                <div className="flex items-start justify-between mb-3">
+  1056→                  <div className="flex items-center gap-3">
+  1057→                    <div className="w-10 h-10 rounded-full bg-burgundy/10 flex items-center justify-center">
+  1058→                      <User className="w-5 h-5 text-burgundy" />
+  1059→                    </div>
+  1060→                    <div>
+  1061→                      <p className="font-semibold text-graphite">{contact.name}</p>
+  1062→                      <p className="text-sm text-graphite-muted">{contact.phone}</p>
+  1063→                    </div>
+  1064→                  </div>
+  1065→                  <Button variant="ghost" size="sm" onClick={() => deleteContact(contact.id)} className="text-graphite-muted hover:text-destructive">
+  1066→                    <Trash2 className="w-4 h-4" />
+  1067→                  </Button>
+  1068→                </div>
+  1069→                <div className="flex gap-2">
+  1070→                  {MESSAGE_STYLES.map((s) => (
+  1071→                    <Button
+  1072→                      key={s.value}
+  1073→                      size="sm"
+  1074→                      variant="outline"
+  1075→                      className="text-xs flex-1 hover:bg-burgundy-50 hover:border-burgundy/30 hover:text-burgundy"
+  1076→                      disabled={genLoading}
+  1077→                      onClick={() => { setScheduleContact(contact); handleGenerate(contact, s.value); }}
+  1078→                    >
+  1079→                      {s.emoji} {s.label}
+  1080→                    </Button>
+  1081→                  ))}
+  1082→                </div>
+  1083→                {scheduleContact?.id === contact.id && previewMsg && (
+  1084→                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
+  1085→                    <div className="bg-rose-pastel-light rounded-lg p-3 border border-burgundy/10 mb-2">
+  1086→                      <p className="text-sm text-graphite whitespace-pre-wrap">{previewMsg}</p>
+  1087→                    </div>
+  1088→                    <Button size="sm" className="w-full bg-burgundy hover:bg-burgundy-dark text-white" onClick={() => handleSend(contact, previewMsg, 'romantic')}>
+  1089→                      <Send className="w-4 h-4 mr-2" /> Enviar Agora
+  1090→                    </Button>
+  1091→                  </motion.div>
+  1092→                )}
+  1093→              </CardContent>
+  1094→            </Card>
+  1095→          ))}
+  1096→        </div>
+  1097→      )}
+  1098→
+  1099→      {/* Active Schedules */}
+  1100→      {schedules.length > 0 && (
+  1101→        <div className="mt-8">
+  1102→          <h3 className="text-lg font-bold text-graphite mb-4">Agendamentos Ativos</h3>
+  1103→          <div className="space-y-3">
+  1104→            {schedules.map((s) => (
+  1105→              <Card key={s.id} className={`border-burgundy/10 ${!s.active ? 'opacity-50' : ''}`}>
+  1106→                <CardContent className="p-4 flex items-center justify-between">
+  1107→                  <div className="flex-1 min-w-0">
+  1108→                    <div className="flex items-center gap-2 mb-1">
+  1109→                      <p className="font-semibold text-graphite truncate">{s.contactName}</p>
+  1110→                      <div className="flex gap-1">
+  1111→                        {s.messageStyles.map((st: string) => (
+  1112→                          <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
+  1113→                            {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
+  1114→                          </Badge>
+  1115→                        ))}
+  1116→                      </div>
+  1117→                    </div>
+  1118→                    <p className="text-sm text-graphite-muted">
+  1119→                      <Clock className="w-3.5 h-3.5 inline mr-1" />
+  1120→                      {s.timesPerDay}x ao dia · {s.sendTimes.join(', ')}
+  1121→                    </p>
+  1122→                  </div>
+  1123→                  <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
+  1124→                </CardContent>
+  1125→              </Card>
+  1126→            ))}
+  1127→          </div>
+  1128→        </div>
+  1129→      )}
+  1130→    </div>
+  1131→  );
+  1132→}
+  1133→
+  1134→/* History Tab */
+  1135→function HistoryTab({ history }: { history: MessageHistory[] }) {
+  1136→  const [expanded, setExpanded] = useState<string | null>(null);
+  1137→
+  1138→  if (history.length === 0) {
+  1139→    return (
+  1140→      <Card className="border-dashed border-2 border-burgundy/20">
+  1141→        <CardContent className="py-12 text-center">
+  1142→          <Clock className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+  1143→          <p className="text-graphite-muted font-medium">Nenhum envio ainda</p>
+  1144→          <p className="text-sm text-graphite-muted/70">As mensagens enviadas aparecerão aqui</p>
+  1145→        </CardContent>
+  1146→      </Card>
+  1147→    );
+  1148→  }
+  1149→
+  1150→  const statusConfig: Record<string, { label: string; className: string }> = {
+  1151→    sent: { label: 'Enviado', className: 'bg-green-100 text-green-700 border-green-200' },
+  1152→    delivered: { label: 'Entregue', className: 'bg-teal-100 text-teal-700 border-teal-200' },
+  1153→    pending: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  1154→    failed: { label: 'Falhou', className: 'bg-red-100 text-red-700 border-red-200' },
+  1155→  };
+  1156→
+  1157→  return (
+  1158→    <ScrollArea className="max-h-[70vh]">
+  1159→      <div className="space-y-3">
+  1160→        {history.map((msg) => {
+  1161→          const st = statusConfig[msg.status] || statusConfig.pending;
+  1162→          return (
+  1163→            <Card key={msg.id} className="border-burgundy/10 hover:shadow-sm transition-shadow">
+  1164→              <CardContent className="p-4">
+  1165→                <div className="flex items-start justify-between mb-2">
+  1166→                  <div className="flex items-center gap-2 min-w-0">
+  1167→                    <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+  1168→                      <User className="w-4 h-4 text-burgundy" />
+  1169→                    </div>
+  1170→                    <div className="min-w-0">
+  1171→                      <p className="font-medium text-graphite truncate">{msg.contactName}</p>
+  1172→                      <p className="text-xs text-graphite-muted">{new Date(msg.sentAt).toLocaleString('pt-BR')}</p>
+  1173→                    </div>
+  1174→                  </div>
+  1175→                  <div className="flex items-center gap-2 shrink-0">
+  1176→                    <Badge className={`text-xs ${st.className}`}>{st.label}</Badge>
+  1177→                    <Badge variant="secondary" className="text-xs">
+  1178→                      {styleEmojis[msg.style as MessageStyle] || '💬'} {styleLabels[msg.style as MessageStyle] || msg.style}
+  1179→                    </Badge>
+  1180→                  </div>
+  1181→                </div>
+  1182→                <p
+  1183→                  className={`text-sm text-graphite-muted leading-relaxed cursor-pointer ${expanded === msg.id ? '' : 'line-clamp-2'}`}
+  1184→                  onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
+  1185→                >
+  1186→                  {msg.message}
+  1187→                </p>
+  1188→                {expanded === msg.id && (
+  1189→                  <Button variant="link" size="sm" onClick={() => setExpanded(null)} className="text-burgundy p-0 h-auto mt-1">
+  1190→                    Mostrar menos
+  1191→                  </Button>
+  1192→                )}
+  1193→              </CardContent>
+  1194→            </Card>
+  1195→          );
+  1196→        })}
+  1197→      </div>
+  1198→    </ScrollArea>
+  1199→  );
+  1200→}
+  1201→
+  1202→/* Settings Tab */
+  1203→function SettingsTab({ userId }: { userId: string }) {
+  1204→  const { config } = useAppStore();
+  1205→  const [testing, setTesting] = useState(false);
+  1206→
+  1207→  const testConnection = async () => {
+  1208→    setTesting(true);
+  1209→    await new Promise(r => setTimeout(r, 2000));
+  1210→    setTesting(false);
+  1211→    toast.success('Conexão WhatsApp testada com sucesso! ✅');
+  1212→  };
+  1213→
+  1214→  const fields = [
+  1215→    { label: 'Supabase URL', value: config?.supabaseUrl, icon: Shield },
+  1216→    { label: 'Vercel Project ID', value: config?.vercelProjectId, icon: Zap },
+  1217→    { label: 'WhatsApp API URL', value: config?.whatsappApiUrl, icon: MessageCircle },
+  1218→    { label: 'WhatsApp Instance', value: config?.whatsappInstanceName, icon: Phone },
+  1219→  ];
+  1220→
+  1221→  return (
+  1222→    <div className="space-y-6">
+  1223→      <Card className="border-burgundy/10">
+  1224→        <CardHeader>
+  1225→          <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-burgundy" /> Configurações de Integração</CardTitle>
+  1226→          <CardDescription>Conexões configuradas no onboarding</CardDescription>
+  1227→        </CardHeader>
+  1228→        <CardContent className="space-y-4">
+  1229→          {fields.map((f) => (
+  1230→            <div key={f.label} className="flex items-center justify-between py-2 border-b border-burgundy/5 last:border-0">
+  1231→              <div className="flex items-center gap-3">
+  1232→                <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center">
+  1233→                  <f.icon className="w-4 h-4 text-burgundy" />
+  1234→                </div>
+  1235→                <div>
+  1236→                  <p className="text-sm font-medium text-graphite">{f.label}</p>
+  1237→                  <p className="text-xs text-graphite-muted truncate max-w-[250px]">{f.value || 'Não configurado'}</p>
+  1238→                </div>
+  1239→              </div>
+  1240→              <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-burgundy/10 text-burgundy' : ''}>
+  1241→                {f.value ? 'Ativo' : 'Pendente'}
+  1242→              </Badge>
+  1243→            </div>
+  1244→          ))}
+  1245→        </CardContent>
+  1246→      </Card>
+  1247→
+  1248→      <Card className="border-burgundy/10">
+  1249→        <CardHeader>
+  1250→          <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Teste de Conexão</CardTitle>
+  1251→          <CardDescription>Verifique se a integração com WhatsApp está funcionando</CardDescription>
+  1252→        </CardHeader>
+  1253→        <CardContent>
+  1254→          <Button onClick={testConnection} disabled={testing} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1255→            {testing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Testando...</> : <><Send className="w-4 h-4 mr-2" /> Testar Conexão WhatsApp</>}
+  1256→          </Button>
+  1257→        </CardContent>
+  1258→      </Card>
+  1259→    </div>
+  1260→  );
+  1261→}
+  1262→
+  1263→/* ─────────────────── MAIN PAGE ─────────────────── */
+  1264→export default function HomePage() {
+  1265→  const { currentView } = useAppStore();
+  1266→
+  1267→  return (
+  1268→    <AnimatePresence mode="wait">
+  1269→      {currentView === 'landing' && (
+  1270→        <motion.div key="landing" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1271→          <LandingPage />
+  1272→        </motion.div>
+  1273→      )}
+  1274→      {currentView === 'auth' && (
+  1275→        <motion.div key="auth" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1276→          <AuthPage />
+  1277→        </motion.div>
+  1278→      )}
+  1279→      {currentView === 'onboarding' && (
+  1280→        <motion.div key="onboarding" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1281→          <OnboardingPage />
+  1282→        </motion.div>
+  1283→      )}
+  1284→      {currentView === 'dashboard' && (
+  1285→        <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1286→          <Dashboard />
+  1287→        </motion.div>
+  1288→      )}
+  1289→    </AnimatePresence>
+  1290→  );
+  1291→}
