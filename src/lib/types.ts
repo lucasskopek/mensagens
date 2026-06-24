@@ -117,5 +117,5 @@ export const PRICING_PLANS: PricingPlan[] = [
   },
 ];
 
-export const DEV_EMAIL = 'Lucas Skopek';
+export const DEV_EMAIL = 'lucasskopek@outlook.com.br';
 export const DEV_PASSWORD = 'Skopek231165';

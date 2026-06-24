@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+const DEV_EMAIL = 'lucasskopek@outlook.com.br';
 const DEV_NAME = 'Lucas Skopek';
 const DEV_PASSWORD = 'Skopek231165';
 
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto-fill name for dev login
-    const isDevCheck = (name === DEV_NAME || email === DEV_NAME) && password === DEV_PASSWORD;
+    const isDevCheck = (name === DEV_NAME || email === DEV_EMAIL || email === DEV_NAME) && password === DEV_PASSWORD;
     const finalName = name || (isDevCheck ? DEV_NAME : email.split('@')[0]);
 
     const isDev = isDevCheck;
