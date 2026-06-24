@@ -143,3 +143,22 @@ Stage Summary:
 - Z-API sends may fail with 403 if WhatsApp session expired (separate from scheduling)
 - All code compiles cleanly, lint passes, browser verification successful
 
+---
+Task ID: 10
+Agent: main
+Task: Add Z-API QR Code reconnect feature to Settings tab
+
+Work Log:
+- Created /api/whatsapp/qr-code/route.ts - fetches QR code base64 from Z-API
+- Added QrCode icon import to page.tsx
+- Added QR Code dialog to SettingsTab with 3 states: loading, QR code display, error with instructions
+- Added green "Reconectar" button in Settings header (only shows when Z-API is configured)
+- Error state shows step-by-step instructions to create new instance at panel.z-api.io
+- Added "Atualizar Credenciais" shortcut button in error state
+
+Stage Summary:
+- QR Code reconnect feature added to Configurações tab
+- When Z-API instance is valid: shows QR code for scanning
+- When Z-API instance expired: shows instructions to create new instance at panel.z-api.io
+- Lint clean, compilation successful
+

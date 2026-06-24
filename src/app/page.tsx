@@ -27,7 +27,7 @@ import {
   Heart, MessageCircle, Clock, User as UserIcon, Settings, LogOut, Plus, Trash2, Send,
   Check, X, ChevronRight, Crown, Sparkles, Eye, EyeOff,
   ChevronLeft, Info, Gift, ArrowRight, Phone, Mail, Lock,
-  Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays
+  Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays, QrCode
 } from 'lucide-react';
 
 const pageVariants = {
@@ -1542,6 +1542,10 @@ function SettingsTab({ userId }: { userId: string }) {
     error?: string;
   } | null>(null);
   const [showEditConfig, setShowEditConfig] = useState(false);
+  const [showQrDialog, setShowQrDialog] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [qrError, setQrError] = useState('');
   const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || 'https://api.z-api.io');
   const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
   const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
@@ -1601,6 +1605,30 @@ function SettingsTab({ userId }: { userId: string }) {
     }
   };
 
+  const fetchQrCode = async () => {
+    setQrLoading(true);
+    setQrBase64(null);
+    setQrError('');
+    try {
+      const res = await fetch(`/api/whatsapp/qr-code?userId=${userId}`);
+      const data = await res.json();
+      if (data.qrCodeBase64) {
+        setQrBase64(data.qrCodeBase64);
+      } else {
+        setQrError(data.error || 'Não foi possível gerar o QR Code. Verifique suas credenciais ou crie uma nova instância no painel Z-API.');
+      }
+    } catch {
+      setQrError('Erro ao buscar QR Code');
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const openQrDialog = () => {
+    setShowQrDialog(true);
+    fetchQrCode();
+  };
+
   const isZapiConfigured = !!(config?.whatsappApiToken && config?.whatsappInstanceName);
 
   return (
@@ -1638,6 +1666,11 @@ function SettingsTab({ userId }: { userId: string }) {
             <Button variant="outline" size="sm" onClick={testConnection} disabled={testing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
               {testing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-1.5" /> Testar</>}
             </Button>
+            {isZapiConfigured && (
+              <Button size="sm" onClick={openQrDialog} className="bg-green-600 hover:bg-green-700 text-white">
+                <QrCode className="w-4 h-4 mr-1.5" /> Reconectar
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
               <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
             </Button>
@@ -1697,6 +1730,66 @@ function SettingsTab({ userId }: { userId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* QR Code Reconnect Dialog */}
+      <Dialog open={showQrDialog} onOpenChange={(v) => { if (!v) { setQrBase64(null); setQrError(''); } setShowQrDialog(v); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-green-600" />
+              Reconectar WhatsApp
+            </DialogTitle>
+            <DialogDescription>Escaneie o QR Code com o WhatsApp do celular para reconectar</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {qrLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-10 h-10 text-burgundy animate-spin" />
+                <p className="text-sm text-graphite-muted">Gerando QR Code...</p>
+              </div>
+            ) : qrBase64 ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="p-3 bg-white rounded-xl border border-burgundy/10 shadow-sm">
+                  <img src={`data:image/png;base64,${qrBase64}`} alt="QR Code WhatsApp" className="w-64 h-64" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm text-graphite-muted">1. Abra o WhatsApp no celular</p>
+                  <p className="text-sm text-graphite-muted">2. Vá em <strong>Dispositivos conectados → Conectar</strong></p>
+                  <p className="text-sm text-graphite-muted">3. Aponte a câmera para o QR Code</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchQrCode}>
+                  <RefreshCw className="w-4 h-4 mr-1.5" /> Gerar novo QR Code
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-8 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+                  <X className="w-8 h-8 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-medium text-graphite mb-1">Não foi possível gerar o QR Code</p>
+                  <p className="text-sm text-graphite-muted max-w-sm mx-auto">{qrError || 'Sua instância Z-API pode ter expirado. Crie uma nova instância no painel e atualize as credenciais.'}</p>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 space-y-1">
+                  <p className="font-medium">Como resolver:</p>
+                  <p>1. Acesse <a href="https://panel.z-api.io/" target="_blank" rel="noopener noreferrer" className="underline font-medium">panel.z-api.io</a></p>
+                  <p>2. Crie uma nova instância ou reative a existente</p>
+                  <p>3. Copie o novo <strong>Instance ID</strong> e <strong>Token</strong></p>
+                  <p>4. Atualize aqui em <strong>Configurações → Editar</strong></p>
+                </div>
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" onClick={() => { setShowQrDialog(false); setShowEditConfig(true); }}>
+                    Atualizar Credenciais
+                  </Button>
+                  <Button variant="outline" onClick={fetchQrCode}>
+                    <RefreshCw className="w-4 h-4 mr-1.5" /> Tentar Novamente
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Z-API Config Dialog */}
       <Dialog open={showEditConfig} onOpenChange={setShowEditConfig}>
