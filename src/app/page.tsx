@@ -686,14 +686,14 @@ function OnboardingPage() {
                     <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
                       <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
                       <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
-                        <li>Acesse o painel do seu provedor de API do WhatsApp (<strong>Evolution API</strong> ou <strong>Z-API</strong>).</li>
-                        <li>Crie ou selecione uma <strong>Instância ativa</strong> e faça a leitura do QR Code com o seu WhatsApp.</li>
-                        <li>Copie a <strong>&quot;API URL&quot;</strong> do servidor e o seu <strong>&quot;Global Token / ApiKey&quot;</strong> de autenticação.</li>
+                        <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
+                        <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
+                        <li>Copie a <strong>&quot;API URL&quot;</strong> (padrão: <code className="text-xs bg-burgundy/10 px-1 rounded">https://api.z-api.io</code>), o seu <strong>Token</strong> e o nome da <strong>Instância</strong>.</li>
                       </ol>
                     </div>
                     <div>
                       <Label>WhatsApp API URL</Label>
-                      <Input placeholder="https://api.evolution-api.com" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
+                      <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
                     </div>
                     <div>
                       <Label>API Token (ApiKey)</Label>
@@ -1478,6 +1478,14 @@ function HistoryTab({ history }: { history: MessageHistory[] }) {
 function SettingsTab({ userId }: { userId: string }) {
   const { user, config, setConfig } = useAppStore();
   const [testing, setTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    configured: boolean;
+    connected?: boolean;
+    phone?: string;
+    battery?: number;
+    pushName?: string;
+    error?: string;
+  } | null>(null);
   const [showEditConfig, setShowEditConfig] = useState(false);
   const [supabaseUrl, setSupabaseUrl] = useState(config?.supabaseUrl || '');
   const [supabaseKey, setSupabaseKey] = useState(config?.supabaseKey || '');
@@ -1490,9 +1498,23 @@ function SettingsTab({ userId }: { userId: string }) {
 
   const testConnection = async () => {
     setTesting(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setTesting(false);
-    toast.success('Conexão WhatsApp testada com sucesso! ✅');
+    setConnectionStatus(null);
+    try {
+      const res = await fetch(`/api/whatsapp/status?userId=${userId}`);
+      const data = await res.json();
+      setConnectionStatus(data);
+      if (data.connected) {
+        toast.success(`WhatsApp conectado! Número: ${data.phone} 📱✅`);
+      } else if (data.configured === false) {
+        toast.error('Z-API não configurada. Preencha as credenciais primeiro.');
+      } else {
+        toast.error(`Conexão falhou: ${data.error || 'Verifique as credenciais'}`);
+      }
+    } catch {
+      toast.error('Erro ao testar conexão com Z-API');
+    } finally {
+      setTesting(false);
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -1593,13 +1615,44 @@ function SettingsTab({ userId }: { userId: string }) {
 
       <Card className="border-burgundy/10">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Teste de Conexão</CardTitle>
-          <CardDescription>Verifique se a integração com WhatsApp está funcionando</CardDescription>
+          <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Status Z-API (WhatsApp)</CardTitle>
+          <CardDescription>Verifique se a integração com Z-API está conectada</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Button onClick={testConnection} disabled={testing} className="bg-burgundy hover:bg-burgundy-dark text-white">
-            {testing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Testando...</> : <><Send className="w-4 h-4 mr-2" /> Testar Conexão WhatsApp</>}
+            {testing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-2" /> Testar Conexão Z-API</>}
           </Button>
+
+          {connectionStatus && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-4 rounded-lg border ${
+                connectionStatus.connected
+                  ? 'bg-green-50 border-green-200'
+                  : connectionStatus.configured === false
+                    ? 'bg-amber-50 border-amber-200'
+                    : 'bg-red-50 border-red-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-3 h-3 rounded-full ${connectionStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className="font-semibold text-sm">
+                  {connectionStatus.connected ? 'Conectado' : connectionStatus.configured === false ? 'Não Configurado' : 'Desconectado'}
+                </span>
+              </div>
+              {connectionStatus.connected && (
+                <div className="text-sm text-graphite-muted space-y-1">
+                  <p>📱 Número: <strong>{connectionStatus.phone}</strong></p>
+                  {connectionStatus.pushName && <p>👤 Push Name: <strong>{connectionStatus.pushName}</strong></p>}
+                  {connectionStatus.battery !== undefined && <p>🔋 Bateria: <strong>{connectionStatus.battery}%</strong></p>}
+                </div>
+              )}
+              {!connectionStatus.connected && connectionStatus.error && (
+                <p className="text-sm text-red-600">{connectionStatus.error}</p>
+              )}
+            </motion.div>
+          )}
         </CardContent>
       </Card>
 

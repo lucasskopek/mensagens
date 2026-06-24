@@ -46,3 +46,23 @@ Stage Summary:
 - Dev bypass (Lucas Skopek / Skopek231165) provides unlimited credits
 - All API routes working: auth, contacts, schedules, messages/generate, messages/send, onboarding, credits
 
+---
+Task ID: 2
+Agent: Main
+Task: Integrate with Z-API (z-api.io) for real WhatsApp messaging
+
+Work Log:
+- Researched Z-API documentation: send-text and status endpoints
+- Created src/lib/zapi.ts service module with sendTextMessage() and checkInstanceStatus()
+- Updated /api/messages/send to call real Z-API when credentials are configured, fallback to demo mode otherwise
+- Created /api/whatsapp/status endpoint that checks Z-API instance connection
+- Updated SettingsTab frontend: real connection test with status display (connected/disconnected, phone number, battery, push name)
+- Updated onboarding to reference z-api.io specifically with link and default URL
+- Updated Z-API placeholder URL from evolution-api to api.z-api.io
+
+Stage Summary:
+- Z-API integration complete: send-text and status check working
+- Endpoint pattern: {baseUrl}/instances/{instanceId}/token/{apiToken}/{action}
+- Graceful fallback: if Z-API not configured, messages are saved as "sent" in demo mode
+- Frontend shows real connection status with green/red indicator
+
