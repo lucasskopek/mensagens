@@ -15,19 +15,16 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   Heart, MessageCircle, Clock, User, Settings, LogOut, Plus, Trash2, Send,
-  Check, X, ChevronRight, Star, Zap, Shield, Crown, Sparkles, Eye, EyeOff,
-  ChevronLeft, Play, Pause, Info, Gift, ArrowRight, Phone, Mail, Lock,
-  Loader2, HeartHandshake, Copy, CheckCircle2, AlertCircle, RefreshCw,
-  Package, CreditCard, CalendarDays
+  Check, X, ChevronRight, Zap, Shield, Crown, Sparkles, Eye, EyeOff,
+  ChevronLeft, Info, Gift, ArrowRight, Phone, Mail, Lock,
+  Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays
 } from 'lucide-react';
 
 const pageVariants = {
@@ -782,6 +779,23 @@ function Dashboard() {
       </header>
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 sm:py-8">
+        {/* Welcome Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-burgundy to-burgundy-light text-white"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <HeartHandshake className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-lg">Olá, {user.name}! {isDevMode ? '👑' : '💕'}</h2>
+              <p className="text-white/80 text-sm">Gerencie seus agendamentos e mantenha a chama acesa.</p>
+            </div>
+          </div>
+        </motion.div>
+
         <Tabs defaultValue="schedules">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="schedules" className="text-xs sm:text-sm">
@@ -816,6 +830,17 @@ function Dashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-auto border-t border-burgundy/10 bg-white py-4">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Heart className="w-4 h-4 text-burgundy" fill="#722F37" />
+            <span className="text-sm font-medium text-gradient-burgundy">WhatsRomance</span>
+          </div>
+          <p className="text-xs text-graphite-muted">&copy; 2025 WhatsRomance &middot; Feito com ❤️ para fortalecer relacionamentos</p>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -838,7 +863,34 @@ function CreditBadge({ userId, credits, onUpdate }: { userId: string; credits: n
 
   const handleRecharge = async (planId: string) => {
     const plan = PRICING_PLANS.find(p => p.id === planId);
-    if (!plan || !plan.credits) return;
+    if (!plan) return;
+    // For avulso, prompt for custom amount
+    if (planId === 'avulso') {
+      const amountStr = prompt('Quantos créditos deseja comprar? (mín. 10)');
+      if (!amountStr) return;
+      const amount = parseInt(amountStr, 10);
+      if (isNaN(amount) || amount < 10) {
+        toast.error('Mínimo de 10 créditos');
+        return;
+      }
+      try {
+        const res = await fetch('/api/credits/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, amount, planName: `Avulso (${amount} créditos)` }),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setBalance(data.credits);
+        toast.success(`${amount} créditos adicionados! 🎉`);
+        setShowRecharge(false);
+        onUpdate();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Erro');
+      }
+      return;
+    }
+    if (!plan.credits) return;
     try {
       const res = await fetch('/api/credits/add', {
         method: 'POST',
@@ -874,14 +926,16 @@ function CreditBadge({ userId, credits, onUpdate }: { userId: string; credits: n
             <DialogDescription>Escolha um plano para continuar enviando mensagens</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
-            {PRICING_PLANS.filter(p => p.id !== 'avulso').map(p => (
+            {PRICING_PLANS.map(p => (
               <Card key={p.id} className={`cursor-pointer transition-all hover:shadow-md ${p.popular ? 'border-2 border-burgundy' : ''}`} onClick={() => handleRecharge(p.id)}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-graphite">{p.name}</p>
-                    <p className="text-sm text-graphite-muted">{p.totalPrice} · {p.credits} mensagens</p>
+                    <p className="text-sm text-graphite-muted">{p.totalPrice} {p.credits > 0 ? `· ${p.credits} mensagens` : '· R$ 0,50/unidade'}</p>
                   </div>
-                  <Button size="sm" className="bg-burgundy hover:bg-burgundy-dark text-white">Assinar</Button>
+                  <Button size="sm" className="bg-burgundy hover:bg-burgundy-dark text-white">
+                    {p.id === 'avulso' ? 'Recarregar' : 'Assinar'}
+                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -898,16 +952,182 @@ function CreditBadge({ userId, credits, onUpdate }: { userId: string; credits: n
   );
 }
 
+/* ─── Create Schedule Dialog ─── */
+function CreateScheduleDialog({
+  contacts, userId, open, onOpenChange, onSuccess
+}: {
+  contacts: Contact[]; userId: string; open: boolean; onOpenChange: (v: boolean) => void; onSuccess: () => void;
+}) {
+  const [contactId, setContactId] = useState('');
+  const [selectedStyles, setSelectedStyles] = useState<MessageStyle[]>(['romantic']);
+  const [times, setTimes] = useState<string[]>(['08:00']);
+  const [newTime, setNewTime] = useState('12:00');
+  const [loading, setLoading] = useState(false);
+
+  const toggleStyle = (s: MessageStyle) => {
+    setSelectedStyles(prev =>
+      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+    );
+  };
+
+  const addTime = () => {
+    if (newTime && !times.includes(newTime) && times.length < 5) {
+      setTimes([...times, newTime]);
+      setNewTime('');
+    }
+  };
+  const removeTime = (t: string) => setTimes(times.filter(x => x !== t));
+
+  const handleCreate = async () => {
+    if (!contactId || selectedStyles.length === 0 || times.length === 0) {
+      toast.error('Selecione um contato, pelo menos um estilo e um horário');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId, contactId, messageStyles: selectedStyles,
+          timesPerDay: times.length, sendTimes: times,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast.success('Agendamento criado com sucesso! 📅');
+      onOpenChange(false);
+      resetForm();
+      onSuccess();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar agendamento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setContactId('');
+    setSelectedStyles(['romantic']);
+    setTimes(['08:00']);
+    setNewTime('12:00');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-burgundy" />
+            Criar Agendamento
+          </DialogTitle>
+          <DialogDescription>Configure o envio automático de mensagens para um contato</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-3">
+          {/* Contact Selection */}
+          <div>
+            <Label className="text-sm font-medium">Contato *</Label>
+            <Select value={contactId} onValueChange={setContactId}>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue placeholder="Selecione um contato" />
+              </SelectTrigger>
+              <SelectContent>
+                {contacts.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name} — {c.phone}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Style Selection */}
+          <div>
+            <Label className="text-sm font-medium">Estilos de Mensagem * <span className="text-graphite-muted font-normal">(pode marcar mais de um)</span></Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {MESSAGE_STYLES.map(s => (
+                <label
+                  key={s.value}
+                  className={`flex items-center gap-2.5 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    selectedStyles.includes(s.value)
+                      ? 'border-burgundy bg-burgundy-50'
+                      : 'border-burgundy/10 hover:border-burgundy/30'
+                  }`}
+                >
+                  <Checkbox
+                    checked={selectedStyles.includes(s.value)}
+                    onCheckedChange={() => toggleStyle(s.value)}
+                  />
+                  <div>
+                    <span className="text-sm font-medium">{s.emoji} {s.label}</span>
+                    <p className="text-xs text-graphite-muted">{s.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Times Selection */}
+          <div>
+            <Label className="text-sm font-medium">
+              Horários de Envio *
+              <span className="text-graphite-muted font-normal ml-1">({times.length}x ao dia, máx. 5)</span>
+            </Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {times.map(t => (
+                <Badge key={t} variant="secondary" className="px-3 py-1.5 text-sm gap-1.5">
+                  <Clock className="w-3.5 h-3.5" /> {t}
+                  <button onClick={() => removeTime(t)} className="ml-0.5 hover:text-destructive transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            {times.length < 5 && (
+              <div className="flex gap-2 mt-3">
+                <div className="relative flex-1">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+                  <Input
+                    type="time"
+                    value={newTime}
+                    onChange={(e) => setNewTime(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button variant="outline" onClick={addTime} disabled={!newTime}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            onClick={handleCreate}
+            disabled={loading || !contactId || selectedStyles.length === 0}
+            className="bg-burgundy hover:bg-burgundy-dark text-white"
+          >
+            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Criar Agendamento</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* Schedule Tab */
 function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }: {
   contacts: Contact[]; schedules: Schedule[]; userId: string; userName: string; isDev: boolean; onUpdate: () => void;
 }) {
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
   const [newContactName, setNewContactName] = useState('');
   const [newContactPhone, setNewContactPhone] = useState('');
   const [scheduleContact, setScheduleContact] = useState<Contact | null>(null);
   const [genLoading, setGenLoading] = useState(false);
   const [previewMsg, setPreviewMsg] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState<MessageStyle>('romantic');
 
   const addContact = async () => {
     if (!newContactName || !newContactPhone) { toast.error('Preencha nome e telefone'); return; }
@@ -947,6 +1167,7 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
 
   const handleGenerate = async (contact: Contact, style: MessageStyle) => {
     setGenLoading(true);
+    setSelectedStyle(style);
     try {
       const res = await fetch('/api/messages/generate', {
         method: 'POST',
@@ -964,20 +1185,21 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
     }
   };
 
-  const handleSend = async (contact: Contact, message: string, style: MessageStyle) => {
+  const handleSend = async (contact: Contact, message: string) => {
     try {
       const res = await fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contactName: contact.name, phoneNumber: contact.phone,
-          message, style, userId, contactId: contact.id,
+          message, style: selectedStyle, userId, contactId: contact.id,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       toast.success(data.message);
       setPreviewMsg('');
+      setScheduleContact(null);
       onUpdate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar');
@@ -999,6 +1221,22 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
     }
   };
 
+  const deleteSchedule = async (id: string) => {
+    try {
+      const res = await fetch('/api/schedules', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast.success('Agendamento removido');
+      onUpdate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1006,9 +1244,16 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
           <h2 className="text-xl font-bold text-graphite">Seus Contatos</h2>
           <p className="text-sm text-graphite-muted">{contacts.length} contato(s) cadastrado(s)</p>
         </div>
-        <Button onClick={() => setShowAddContact(true)} className="bg-burgundy hover:bg-burgundy-dark text-white">
-          <Plus className="w-4 h-4 mr-2" /> Novo Contato
-        </Button>
+        <div className="flex gap-2">
+          {contacts.length > 0 && (
+            <Button onClick={() => setShowCreateSchedule(true)} variant="outline" className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+              <CalendarDays className="w-4 h-4 mr-2" /> Agendar
+            </Button>
+          )}
+          <Button onClick={() => setShowAddContact(true)} className="bg-burgundy hover:bg-burgundy-dark text-white">
+            <Plus className="w-4 h-4 mr-2" /> Novo Contato
+          </Button>
+        </div>
       </div>
 
       {/* Add Contact Dialog */}
@@ -1038,6 +1283,15 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
         </DialogContent>
       </Dialog>
 
+      {/* Create Schedule Dialog */}
+      <CreateScheduleDialog
+        contacts={contacts}
+        userId={userId}
+        open={showCreateSchedule}
+        onOpenChange={setShowCreateSchedule}
+        onSuccess={onUpdate}
+      />
+
       {/* Contacts List */}
       {contacts.length === 0 ? (
         <Card className="border-dashed border-2 border-burgundy/20">
@@ -1066,6 +1320,7 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-graphite-muted mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Gerar mensagem rápida:</p>
                 <div className="flex gap-2">
                   {MESSAGE_STYLES.map((s) => (
                     <Button
@@ -1083,11 +1338,21 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
                 {scheduleContact?.id === contact.id && previewMsg && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
                     <div className="bg-rose-pastel-light rounded-lg p-3 border border-burgundy/10 mb-2">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Badge variant="secondary" className="text-xs">
+                          {styleEmojis[selectedStyle]} {styleLabels[selectedStyle]}
+                        </Badge>
+                      </div>
                       <p className="text-sm text-graphite whitespace-pre-wrap">{previewMsg}</p>
                     </div>
-                    <Button size="sm" className="w-full bg-burgundy hover:bg-burgundy-dark text-white" onClick={() => handleSend(contact, previewMsg, 'romantic')}>
-                      <Send className="w-4 h-4 mr-2" /> Enviar Agora
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setGenLoading(true); handleGenerate(contact, selectedStyle).finally(() => setGenLoading(false)); }}>
+                        <RefreshCw className={`w-4 h-4 mr-1.5 ${genLoading ? 'animate-spin' : ''}`} /> Regenerar
+                      </Button>
+                      <Button size="sm" className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white" onClick={() => handleSend(contact, previewMsg)}>
+                        <Send className="w-4 h-4 mr-1.5" /> Enviar
+                      </Button>
+                    </div>
                   </motion.div>
                 )}
               </CardContent>
@@ -1103,24 +1368,34 @@ function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }:
           <div className="space-y-3">
             {schedules.map((s) => (
               <Card key={s.id} className={`border-burgundy/10 ${!s.active ? 'opacity-50' : ''}`}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold text-graphite truncate">{s.contactName}</p>
-                      <div className="flex gap-1">
-                        {s.messageStyles.map((st: string) => (
-                          <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
-                            {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
-                          </Badge>
-                        ))}
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-burgundy" />
+                        </div>
+                        <p className="font-semibold text-graphite truncate">{s.contactName}</p>
+                        <div className="flex gap-1 flex-wrap">
+                          {s.messageStyles.map((st: string) => (
+                            <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
+                              {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
+                      <p className="text-sm text-graphite-muted ml-10">
+                        <Clock className="w-3.5 h-3.5 inline mr-1" />
+                        {s.timesPerDay}x ao dia · {s.sendTimes.join(', ')}
+                      </p>
                     </div>
-                    <p className="text-sm text-graphite-muted">
-                      <Clock className="w-3.5 h-3.5 inline mr-1" />
-                      {s.timesPerDay}x ao dia · {s.sendTimes.join(', ')}
-                    </p>
+                    <div className="flex items-center gap-2 ml-3">
+                      <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
+                      <Button variant="ghost" size="sm" onClick={() => deleteSchedule(s.id)} className="text-graphite-muted hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
                 </CardContent>
               </Card>
             ))}
@@ -1201,8 +1476,17 @@ function HistoryTab({ history }: { history: MessageHistory[] }) {
 
 /* Settings Tab */
 function SettingsTab({ userId }: { userId: string }) {
-  const { config } = useAppStore();
+  const { user, config, setConfig } = useAppStore();
   const [testing, setTesting] = useState(false);
+  const [showEditConfig, setShowEditConfig] = useState(false);
+  const [supabaseUrl, setSupabaseUrl] = useState(config?.supabaseUrl || '');
+  const [supabaseKey, setSupabaseKey] = useState(config?.supabaseKey || '');
+  const [vercelToken, setVercelToken] = useState(config?.vercelToken || '');
+  const [vercelProjectId, setVercelProjectId] = useState(config?.vercelProjectId || '');
+  const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || '');
+  const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
+  const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
+  const [saving, setSaving] = useState(false);
 
   const testConnection = async () => {
     setTesting(true);
@@ -1211,33 +1495,95 @@ function SettingsTab({ userId }: { userId: string }) {
     toast.success('Conexão WhatsApp testada com sucesso! ✅');
   };
 
+  const handleSaveConfig = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id, supabaseUrl, supabaseKey,
+          vercelToken, vercelProjectId,
+          whatsappApiUrl, whatsappApiToken, whatsappInstanceName,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setConfig({ supabaseUrl, supabaseKey, vercelToken, vercelProjectId, whatsappApiUrl, whatsappApiToken, whatsappInstanceName, setupCompleted: true });
+      toast.success('Configurações atualizadas! 🎉');
+      setShowEditConfig(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const fields = [
-    { label: 'Supabase URL', value: config?.supabaseUrl, icon: Shield },
-    { label: 'Vercel Project ID', value: config?.vercelProjectId, icon: Zap },
-    { label: 'WhatsApp API URL', value: config?.whatsappApiUrl, icon: MessageCircle },
-    { label: 'WhatsApp Instance', value: config?.whatsappInstanceName, icon: Phone },
+    { label: 'Supabase URL', value: config?.supabaseUrl, icon: Shield, desc: 'Banco de dados' },
+    { label: 'Supabase Anon Key', value: config?.supabaseKey, icon: Shield, desc: 'Chave de acesso' },
+    { label: 'Vercel Token', value: config?.vercelToken, icon: Zap, desc: 'Deploy' },
+    { label: 'Vercel Project ID', value: config?.vercelProjectId, icon: Zap, desc: 'ID do projeto' },
+    { label: 'WhatsApp API URL', value: config?.whatsappApiUrl, icon: MessageCircle, desc: 'Gateway de mensagens' },
+    { label: 'WhatsApp Instance', value: config?.whatsappInstanceName, icon: Phone, desc: 'Instância conectada' },
   ];
+
+  const activeCount = fields.filter(f => f.value).length;
 
   return (
     <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="border-burgundy/10">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-burgundy">{activeCount}/6</p>
+            <p className="text-xs text-graphite-muted mt-1">Integrações Ativas</p>
+          </CardContent>
+        </Card>
+        <Card className="border-burgundy/10">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-graphite">{user?.credits ?? 0}</p>
+            <p className="text-xs text-graphite-muted mt-1">Créditos {user?.isDev ? '(∞)' : ''}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-burgundy/10">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-graphite">{config?.setupCompleted ? '✅' : '⏳'}</p>
+            <p className="text-xs text-graphite-muted mt-1">Setup</p>
+          </CardContent>
+        </Card>
+        <Card className="border-burgundy/10">
+          <CardContent className="p-4 text-center">
+            <p className="text-2xl font-bold text-graphite">{user?.isDev ? '👑' : '👤'}</p>
+            <p className="text-xs text-graphite-muted mt-1">{user?.isDev ? 'Admin' : 'Usuário'}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="border-burgundy/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-burgundy" /> Configurações de Integração</CardTitle>
-          <CardDescription>Conexões configuradas no onboarding</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-burgundy" /> Configurações de Integração</CardTitle>
+            <CardDescription>Conexões com Supabase, Vercel e WhatsApp API</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+            <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {fields.map((f) => (
-            <div key={f.label} className="flex items-center justify-between py-2 border-b border-burgundy/5 last:border-0">
+            <div key={f.label} className="flex items-center justify-between py-2.5 border-b border-burgundy/5 last:border-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center shrink-0">
                   <f.icon className="w-4 h-4 text-burgundy" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-graphite">{f.label}</p>
                   <p className="text-xs text-graphite-muted truncate max-w-[250px]">{f.value || 'Não configurado'}</p>
                 </div>
               </div>
-              <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-burgundy/10 text-burgundy' : ''}>
+              <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-green-100 text-green-700 border-green-200' : ''}>
                 {f.value ? 'Ativo' : 'Pendente'}
               </Badge>
             </div>
@@ -1256,6 +1602,46 @@ function SettingsTab({ userId }: { userId: string }) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Edit Config Dialog */}
+      <Dialog open={showEditConfig} onOpenChange={setShowEditConfig}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Configurações de Integração</DialogTitle>
+            <DialogDescription>Atualize suas credenciais de API</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="bg-rose-pastel-light rounded-lg p-3 text-sm">
+              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><Info className="w-4 h-4 text-burgundy" /> Supabase</p>
+              <div className="space-y-3 mt-2">
+                <div><Label className="text-xs">Supabase URL</Label><Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="mt-1" /></div>
+                <div><Label className="text-xs">Supabase Anon Key</Label><Input placeholder="eyJhbGciOiJIUzI1NiIs..." value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="mt-1" /></div>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><Zap className="w-4 h-4 text-gray-600" /> Vercel</p>
+              <div className="space-y-3 mt-2">
+                <div><Label className="text-xs">Vercel Auth Token</Label><Input placeholder="vercel_xxxxx" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} className="mt-1" /></div>
+                <div><Label className="text-xs">Vercel Project ID</Label><Input placeholder="prj_xxxxx" value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} className="mt-1" /></div>
+              </div>
+            </div>
+            <div className="bg-green-50 rounded-lg p-3 text-sm">
+              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><MessageCircle className="w-4 h-4 text-green-600" /> WhatsApp API</p>
+              <div className="space-y-3 mt-2">
+                <div><Label className="text-xs">API URL</Label><Input placeholder="https://api.evolution-api.com" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1" /></div>
+                <div><Label className="text-xs">API Token</Label><Input placeholder="xxxxxxxx" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" /></div>
+                <div><Label className="text-xs">Instance Name</Label><Input placeholder="minha-instancia" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1" /></div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditConfig(false)}>Cancelar</Button>
+            <Button onClick={handleSaveConfig} disabled={saving} className="bg-burgundy hover:bg-burgundy-dark text-white">
+              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
