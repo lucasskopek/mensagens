@@ -1,20 +1,17 @@
 /**
- * Z-API WhatsApp Integration Service
- * Docs: https://developer.z-api.io/
+ * Z-API (z-api.io) WhatsApp Gateway Integration
+ *
+ * Docs: https://docs.z-api.io/
  *
  * Endpoint pattern:
- *   {baseUrl}/instances/{instanceId}/token/{apiToken}/{action}
- *
- * Supported actions:
- *   - send-text        → POST  Send plain text message
- *   - status           → GET   Check instance connection status
- *   - fetch-messages   → GET   Get received messages
+ *   POST {baseUrl}/instances/{instanceId}/token/{apiToken}/send-text
+ *   GET  {baseUrl}/instances/{instanceId}/token/{apiToken}/status
  */
 
 export interface ZApiConfig {
-  baseUrl: string;       // e.g. "https://api.z-api.io"
-  apiToken: string;      // Instance API Token
-  instanceId: string;    // Instance name/ID
+  baseUrl: string;    // e.g. "https://api.z-api.io"
+  apiToken: string;   // e.g. "A5952CF5C5A11E0654F91542"
+  instanceId: string; // e.g. "3F5217F0ED99C172B0886272DDAD8C6F"
 }
 
 export interface ZApiSendResult {
@@ -22,7 +19,7 @@ export interface ZApiSendResult {
   messageId?: string;
   zapId?: string;
   error?: string;
-  details?: string;
+  raw?: unknown;
 }
 
 export interface ZApiStatusResult {
@@ -31,11 +28,12 @@ export interface ZApiStatusResult {
   battery?: number;
   pushName?: string;
   error?: string;
+  raw?: unknown;
 }
 
-function buildUrl(config: ZApiConfig, action: string): string {
+function buildUrl(config: ZApiConfig, endpoint: string): string {
   const base = config.baseUrl.replace(/\/+$/, '');
-  return `${base}/instances/${config.instanceId}/token/${config.apiToken}/${action}`;
+  return `${base}/instances/${config.instanceId}/token/${config.apiToken}/${endpoint}`;
 }
 
 /**
@@ -44,20 +42,21 @@ function buildUrl(config: ZApiConfig, action: string): string {
 export async function sendTextMessage(
   config: ZApiConfig,
   phone: string,
-  message: string
+  message: string,
 ): Promise<ZApiSendResult> {
-  // Clean phone: remove non-digits, ensure country code
-  const cleanPhone = phone.replace(/\D/g, '');
+  // Clean phone: remove non-digits and ensure country code
+  let cleanPhone = phone.replace(/\D/g, '');
+  // If doesn't start with country code, assume Brazil (55)
+  if (!cleanPhone.startsWith('55') && cleanPhone.length <= 11) {
+    cleanPhone = '55' + cleanPhone;
+  }
 
   const url = buildUrl(config, 'send-text');
 
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         phone: cleanPhone,
         message,
@@ -66,67 +65,57 @@ export async function sendTextMessage(
 
     const data = await response.json();
 
-    // Z-API returns { zaapId, messageId, error, ... }
-    if (data.error) {
+    // Z-API returns { zaapId, id, messageId } on success
+    // or { error: true, message: "..." } on failure
+    if (data.error === true || data.error === 'true') {
       return {
         success: false,
-        error: data.error,
-        details: `Z-API error code: ${data.error}`,
+        error: data.message || data.errorDescription || 'Erro retornado pela Z-API',
+        raw: data,
       };
     }
 
+    // Successful responses vary but typically include an id/zaapId
+    const success = response.ok;
     return {
-      success: true,
-      messageId: data.messageId || data.id,
-      zapId: data.zaapId,
+      success,
+      messageId: data.id || data.messageId || String(data.zaapId || ''),
+      zapId: data.zaapId || data.readOnly?.zaapId,
+      error: success ? undefined : `HTTP ${response.status}: ${JSON.stringify(data)}`,
+      raw: data,
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erro desconhecido';
     return {
       success: false,
-      error: msg,
-      details: `Falha ao conectar com Z-API em ${config.baseUrl}`,
+      error: err instanceof Error ? err.message : 'Falha na conexão com Z-API',
     };
   }
 }
 
 /**
- * Check WhatsApp instance connection status
+ * Check the WhatsApp instance connection status
  */
 export async function checkInstanceStatus(
-  config: ZApiConfig
+  config: ZApiConfig,
 ): Promise<ZApiStatusResult> {
   const url = buildUrl(config, 'status');
 
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        connected: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
-      };
-    }
-
+    const response = await fetch(url);
     const data = await response.json();
 
-    // Z-API status response: { connected: true, phone, battery, pushName, ... }
+    // Z-API status response format:
+    // { connected: true, session: false, smartphoneConnected: true, ... }
+    const isConnected = data.connected === true || data.smartphoneConnected === true;
+
     return {
-      connected: data.connected === true || data.connected === 'true',
-      phone: data.phone,
-      battery: data.battery,
-      pushName: data.pushName,
+      connected: isConnected,
+      raw: data,
     };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erro desconhecido';
     return {
       connected: false,
-      error: msg,
+      error: err instanceof Error ? err.message : 'Falha ao verificar status',
     };
   }
 }

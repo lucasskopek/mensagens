@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Heart, MessageCircle, Clock, User as UserIcon, Settings, LogOut, Plus, Trash2, Send,
-  Check, X, ChevronRight, Zap, Shield, Crown, Sparkles, Eye, EyeOff,
+  Check, X, ChevronRight, Crown, Sparkles, Eye, EyeOff,
   ChevronLeft, Info, Gift, ArrowRight, Phone, Mail, Lock,
   Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays
 } from 'lucide-react';
@@ -386,8 +386,12 @@ function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !password) {
+    if (!email || !password) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    if (mode === 'register' && !name) {
+      toast.error('Nome é obrigatório para cadastro');
       return;
     }
     setLoading(true);
@@ -499,27 +503,25 @@ function AuthPage() {
 /* ─────────────────── ONBOARDING PAGE ─────────────────── */
 function OnboardingPage() {
   const { user, setView, setConfig } = useAppStore();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Supabase
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseKey, setSupabaseKey] = useState('');
-  // Vercel
-  const [vercelToken, setVercelToken] = useState('');
-  const [vercelProjectId, setVercelProjectId] = useState('');
-  // WhatsApp
-  const [whatsappApiUrl, setWhatsappApiUrl] = useState('');
+  // Z-API credentials
+  const [whatsappApiUrl, setWhatsappApiUrl] = useState('https://api.z-api.io');
   const [whatsappApiToken, setWhatsappApiToken] = useState('');
   const [whatsappInstanceName, setWhatsappInstanceName] = useState('');
 
   const handleSave = async () => {
     if (!user) return;
+    if (!whatsappApiToken || !whatsappInstanceName) {
+      toast.error('Preencha o Token e o Instance ID');
+      return;
+    }
     setLoading(true);
     try {
       const configData: UserConfig = {
-        supabaseUrl, supabaseKey, vercelToken, vercelProjectId,
-        whatsappApiUrl, whatsappApiToken, whatsappInstanceName,
+        whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
+        whatsappApiToken,
+        whatsappInstanceName,
         setupCompleted: true,
       };
       const res = await fetch('/api/onboarding', {
@@ -530,7 +532,7 @@ function OnboardingPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setConfig(configData);
-      toast.success('Configuração salva com sucesso! 🎉');
+      toast.success('Z-API configurada com sucesso! Mensagens serão enviadas via WhatsApp. 🎉');
       setView('dashboard');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -541,26 +543,10 @@ function OnboardingPage() {
 
   const handleSkip = () => {
     if (!user) return;
-    const configData: UserConfig = {
-      supabaseUrl: 'https://demo.supabase.co',
-      supabaseKey: 'demo-key',
-      vercelToken: 'demo-token',
-      vercelProjectId: 'demo-project',
-      whatsappApiUrl: 'https://demo.evolution-api.com',
-      whatsappApiToken: 'demo-token',
-      whatsappInstanceName: 'demo-instance',
-      setupCompleted: true,
-    };
-    setConfig(configData);
-    toast.info('Configuração de demonstração aplicada. Configure depois no painel.');
+    setConfig({ setupCompleted: false });
+    toast.info('Configure a Z-API depois em Configurações para enviar mensagens reais.');
     setView('dashboard');
   };
-
-  const steps = [
-    { num: 1, label: 'Supabase' },
-    { num: 2, label: 'Vercel' },
-    { num: 3, label: 'WhatsApp' },
-  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-burgundy-50 via-background to-rose-pastel-light">
@@ -579,141 +565,47 @@ function OnboardingPage() {
 
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl">
-          {/* Step indicator */}
-          <div className="flex items-center justify-center gap-4 mb-8">
-            {steps.map((s, i) => (
-              <div key={s.num} className="flex items-center gap-2">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${step === s.num ? 'bg-burgundy text-white' : step > s.num ? 'bg-burgundy/20 text-burgundy' : 'bg-muted text-graphite-muted'}`}>
-                  {step > s.num ? <Check className="w-5 h-5" /> : s.num}
+          <Card className="shadow-xl border-burgundy/10">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-green-600" /></div>
+                <div>
+                  <CardTitle>Conectar Z-API (WhatsApp)</CardTitle>
+                  <CardDescription>Configure seu gateway para enviar mensagens reais</CardDescription>
                 </div>
-                <span className={`text-sm hidden sm:inline ${step === s.num ? 'text-burgundy font-medium' : 'text-graphite-muted'}`}>{s.label}</span>
-                {i < steps.length - 1 && <div className={`w-8 sm:w-16 h-0.5 ${step > s.num ? 'bg-burgundy' : 'bg-muted'}`} />}
               </div>
-            ))}
-          </div>
-
-          <AnimatePresence mode="wait">
-            {step === 1 && (
-              <motion.div key="step1" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <Card className="shadow-xl border-burgundy/10">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center"><Shield className="w-5 h-5 text-emerald-600" /></div>
-                      <div>
-                        <CardTitle>Conexão com Supabase</CardTitle>
-                        <CardDescription>Banco de dados da sua aplicação</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
-                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar suas credenciais:</p>
-                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
-                        <li>Acesse o painel do seu projeto no <strong>Supabase</strong> (supabase.com).</li>
-                        <li>No menu lateral esquerdo, clique no ícone de engrenagem (<strong>Project Settings</strong>).</li>
-                        <li>Vá até a opção <strong>&quot;API&quot;</strong>.</li>
-                        <li>Localize e copie os campos <strong>&quot;Project URL&quot;</strong> e <strong>&quot;Project API anon key&quot;</strong>.</li>
-                      </ol>
-                    </div>
-                    <div>
-                      <Label>Supabase URL</Label>
-                      <Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="mt-1.5" />
-                    </div>
-                    <div>
-                      <Label>Supabase Anon Key</Label>
-                      <Input placeholder="eyJhbGciOiJIUzI1NiIs..." value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="mt-1.5" />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="ghost" onClick={() => setView('landing')}><ChevronLeft className="w-4 h-4 mr-1" /> Voltar</Button>
-                    <Button onClick={() => setStep(2)} className="bg-burgundy hover:bg-burgundy-dark text-white">Próximo <ChevronRight className="w-4 h-4 ml-1" /></Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            )}
-
-            {step === 2 && (
-              <motion.div key="step2" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <Card className="shadow-xl border-burgundy/10">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center"><Zap className="w-5 h-5 text-gray-700" /></div>
-                      <div>
-                        <CardTitle>Pipeline de Deploy (Vercel)</CardTitle>
-                        <CardDescription>Hospedagem e deploy do projeto</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
-                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
-                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
-                        <li>Acesse o painel da <strong>Vercel</strong> (vercel.com) e clique na sua foto de perfil no canto superior direito para ir em <strong>&quot;Settings&quot;</strong>.</li>
-                        <li>No menu esquerdo, vá em <strong>&quot;Tokens&quot;</strong> e clique em <strong>&quot;Create&quot;</strong> para gerar um token.</li>
-                        <li>Para obter o Project ID, entre no repositório do seu projeto, clique na aba <strong>&quot;Settings&quot;</strong> e copie o ID listado em <strong>&quot;General&quot;</strong>.</li>
-                      </ol>
-                    </div>
-                    <div>
-                      <Label>Vercel Auth Token</Label>
-                      <Input placeholder="vercel_xxxxxxxxxxxxx" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} className="mt-1.5" />
-                    </div>
-                    <div>
-                      <Label>Vercel Project ID</Label>
-                      <Input placeholder="prj_xxxxxxxxxxxxx" value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} className="mt-1.5" />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="ghost" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
-                    <Button onClick={() => setStep(3)} className="bg-burgundy hover:bg-burgundy-dark text-white">Próximo <ChevronRight className="w-4 h-4 ml-1" /></Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            )}
-
-            {step === 3 && (
-              <motion.div key="step3" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                <Card className="shadow-xl border-burgundy/10">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-green-600" /></div>
-                      <div>
-                        <CardTitle>Gateway do WhatsApp</CardTitle>
-                        <CardDescription>API para envio de mensagens</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
-                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
-                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
-                        <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
-                        <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
-                        <li>Copie a <strong>&quot;API URL&quot;</strong> (padrão: <code className="text-xs bg-burgundy/10 px-1 rounded">https://api.z-api.io</code>), o seu <strong>Token</strong> e o nome da <strong>Instância</strong>.</li>
-                      </ol>
-                    </div>
-                    <div>
-                      <Label>WhatsApp API URL</Label>
-                      <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
-                    </div>
-                    <div>
-                      <Label>API Token (ApiKey)</Label>
-                      <Input placeholder="xxxxxxxxxxxxxxxx" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
-                    </div>
-                    <div>
-                      <Label>Instance Name</Label>
-                      <Input placeholder="minha-instancia-whatsapp" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1.5" />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
-                    <Button onClick={handleSave} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white">
-                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar e Continuar</>}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+                <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar suas credenciais:</p>
+                <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+                  <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
+                  <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
+                  <li>Copie a URL completa de envio que fica no formato:<br /><code className="text-xs bg-burgundy/10 px-1.5 py-0.5 rounded break-all">https://api.z-api.io/instances/<strong>{'{INSTANCE_ID}'}</strong>/token/<strong>{'{TOKEN}'}</strong>/send-text</code></li>
+                  <li>Cole o <strong>Instance ID</strong> e o <strong>Token</strong> nos campos abaixo.</li>
+                </ol>
+              </div>
+              <div>
+                <Label>API URL</Label>
+                <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
+                <p className="text-xs text-graphite-muted mt-1">Padrão: https://api.z-api.io</p>
+              </div>
+              <div>
+                <Label>Instance ID</Label>
+                <Input placeholder="3F5217F0ED99C172B0886272DDAD8C6F" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1.5" />
+              </div>
+              <div>
+                <Label>API Token</Label>
+                <Input placeholder="A5952CF5C5A11E0654F91542" type="password" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="ghost" onClick={() => setView('landing')}><ChevronLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+              <Button onClick={handleSave} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white">
+                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar e Continuar</>}
+              </Button>
+            </CardFooter>
+          </Card>
         </motion.div>
       </main>
     </div>
@@ -722,7 +614,7 @@ function OnboardingPage() {
 
 /* ─────────────────── DASHBOARD ─────────────────── */
 function Dashboard() {
-  const { user, isDevMode, logout, setView } = useAppStore();
+  const { user, isDevMode, logout, setView, setConfig } = useAppStore();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [history, setHistory] = useState<MessageHistory[]>([]);
@@ -731,23 +623,29 @@ function Dashboard() {
   const loadData = useCallback(async () => {
     if (!user) return;
     try {
-      const [cRes, sRes, hRes] = await Promise.all([
+      const [cRes, sRes, hRes, cfgRes] = await Promise.all([
         fetch(`/api/contacts?userId=${user.id}`),
         fetch(`/api/schedules?userId=${user.id}`),
         fetch(`/api/messages?userId=${user.id}`),
+        fetch(`/api/onboarding?userId=${user.id}`),
       ]);
       const cData = await cRes.json();
       const sData = await sRes.json();
       const hData = await hRes.json();
+      const cfgData = await cfgRes.json();
       setContacts(cData.error ? [] : cData);
       setSchedules(sData.error ? [] : sData);
       setHistory(hData.error ? [] : hData);
+      // Sync config from DB (includes Z-API credentials)
+      if (cfgData && !cfgData.error && cfgData.setupCompleted) {
+        setConfig(cfgData);
+      }
     } catch {
       // silently fail
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, setConfig]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -1487,14 +1385,17 @@ function SettingsTab({ userId }: { userId: string }) {
     error?: string;
   } | null>(null);
   const [showEditConfig, setShowEditConfig] = useState(false);
-  const [supabaseUrl, setSupabaseUrl] = useState(config?.supabaseUrl || '');
-  const [supabaseKey, setSupabaseKey] = useState(config?.supabaseKey || '');
-  const [vercelToken, setVercelToken] = useState(config?.vercelToken || '');
-  const [vercelProjectId, setVercelProjectId] = useState(config?.vercelProjectId || '');
-  const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || '');
+  const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || 'https://api.z-api.io');
   const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
   const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
   const [saving, setSaving] = useState(false);
+
+  // Sync local state when config loads from DB
+  useEffect(() => {
+    if (config?.whatsappApiUrl) setWhatsappApiUrl(config.whatsappApiUrl);
+    if (config?.whatsappApiToken) setWhatsappApiToken(config.whatsappApiToken);
+    if (config?.whatsappInstanceName) setWhatsappInstanceName(config.whatsappInstanceName);
+  }, [config]);
 
   const testConnection = async () => {
     setTesting(true);
@@ -1525,15 +1426,16 @@ function SettingsTab({ userId }: { userId: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id, supabaseUrl, supabaseKey,
-          vercelToken, vercelProjectId,
-          whatsappApiUrl, whatsappApiToken, whatsappInstanceName,
+          userId: user.id,
+          whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
+          whatsappApiToken,
+          whatsappInstanceName,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setConfig({ supabaseUrl, supabaseKey, vercelToken, vercelProjectId, whatsappApiUrl, whatsappApiToken, whatsappInstanceName, setupCompleted: true });
-      toast.success('Configurações atualizadas! 🎉');
+      setConfig({ whatsappApiUrl, whatsappApiToken, whatsappInstanceName, setupCompleted: true });
+      toast.success('Configurações Z-API atualizadas! 🎉');
       setShowEditConfig(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -1542,27 +1444,12 @@ function SettingsTab({ userId }: { userId: string }) {
     }
   };
 
-  const fields = [
-    { label: 'Supabase URL', value: config?.supabaseUrl, icon: Shield, desc: 'Banco de dados' },
-    { label: 'Supabase Anon Key', value: config?.supabaseKey, icon: Shield, desc: 'Chave de acesso' },
-    { label: 'Vercel Token', value: config?.vercelToken, icon: Zap, desc: 'Deploy' },
-    { label: 'Vercel Project ID', value: config?.vercelProjectId, icon: Zap, desc: 'ID do projeto' },
-    { label: 'WhatsApp API URL', value: config?.whatsappApiUrl, icon: MessageCircle, desc: 'Gateway de mensagens' },
-    { label: 'WhatsApp Instance', value: config?.whatsappInstanceName, icon: Phone, desc: 'Instância conectada' },
-  ];
-
-  const activeCount = fields.filter(f => f.value).length;
+  const isZapiConfigured = !!(config?.whatsappApiToken && config?.whatsappInstanceName);
 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border-burgundy/10">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-burgundy">{activeCount}/6</p>
-            <p className="text-xs text-graphite-muted mt-1">Integrações Ativas</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card className="border-burgundy/10">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-graphite">{user?.credits ?? 0}</p>
@@ -1571,11 +1458,11 @@ function SettingsTab({ userId }: { userId: string }) {
         </Card>
         <Card className="border-burgundy/10">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-graphite">{config?.setupCompleted ? '✅' : '⏳'}</p>
-            <p className="text-xs text-graphite-muted mt-1">Setup</p>
+            <p className="text-2xl font-bold">{isZapiConfigured ? '✅' : '⏳'}</p>
+            <p className="text-xs text-graphite-muted mt-1">Z-API</p>
           </CardContent>
         </Card>
-        <Card className="border-burgundy/10">
+        <Card className="border-burgundy/10 col-span-2 sm:col-span-1">
           <CardContent className="p-4 text-center">
             <p className="text-2xl font-bold text-graphite">{user?.isDev ? '👑' : '👤'}</p>
             <p className="text-xs text-graphite-muted mt-1">{user?.isDev ? 'Admin' : 'Usuário'}</p>
@@ -1583,18 +1470,28 @@ function SettingsTab({ userId }: { userId: string }) {
         </Card>
       </div>
 
+      {/* Z-API Status Card */}
       <Card className="border-burgundy/10">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-burgundy" /> Configurações de Integração</CardTitle>
-            <CardDescription>Conexões com Supabase, Vercel e WhatsApp API</CardDescription>
+            <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Z-API (WhatsApp)</CardTitle>
+            <CardDescription>Status da conexão com seu WhatsApp</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
-            <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={testConnection} disabled={testing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+              {testing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-1.5" /> Testar</>}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+              <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {fields.map((f) => (
+          {[
+            { label: 'API URL', value: config?.whatsappApiUrl, icon: MessageCircle },
+            { label: 'Instance ID', value: config?.whatsappInstanceName, icon: Phone },
+            { label: 'Token', value: config?.whatsappApiToken ? '••••••••••••' : undefined, icon: Lock },
+          ].map((f) => (
             <div key={f.label} className="flex items-center justify-between py-2.5 border-b border-burgundy/5 last:border-0">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center shrink-0">
@@ -1602,7 +1499,7 @@ function SettingsTab({ userId }: { userId: string }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-graphite">{f.label}</p>
-                  <p className="text-xs text-graphite-muted truncate max-w-[250px]">{f.value || 'Não configurado'}</p>
+                  <p className="text-xs text-graphite-muted truncate max-w-[280px]">{f.value || 'Não configurado'}</p>
                 </div>
               </div>
               <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-green-100 text-green-700 border-green-200' : ''}>
@@ -1610,24 +1507,12 @@ function SettingsTab({ userId }: { userId: string }) {
               </Badge>
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      <Card className="border-burgundy/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Status Z-API (WhatsApp)</CardTitle>
-          <CardDescription>Verifique se a integração com Z-API está conectada</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={testConnection} disabled={testing} className="bg-burgundy hover:bg-burgundy-dark text-white">
-            {testing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-2" /> Testar Conexão Z-API</>}
-          </Button>
 
           {connectionStatus && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-lg border ${
+              className={`p-4 rounded-lg border mt-3 ${
                 connectionStatus.connected
                   ? 'bg-green-50 border-green-200'
                   : connectionStatus.configured === false
@@ -1656,34 +1541,29 @@ function SettingsTab({ userId }: { userId: string }) {
         </CardContent>
       </Card>
 
-      {/* Edit Config Dialog */}
+      {/* Edit Z-API Config Dialog */}
       <Dialog open={showEditConfig} onOpenChange={setShowEditConfig}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Editar Configurações de Integração</DialogTitle>
-            <DialogDescription>Atualize suas credenciais de API</DialogDescription>
+            <DialogTitle>Configurar Z-API</DialogTitle>
+            <DialogDescription>Atualize suas credenciais do gateway WhatsApp</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-3">
-            <div className="bg-rose-pastel-light rounded-lg p-3 text-sm">
-              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><Info className="w-4 h-4 text-burgundy" /> Supabase</p>
-              <div className="space-y-3 mt-2">
-                <div><Label className="text-xs">Supabase URL</Label><Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="mt-1" /></div>
-                <div><Label className="text-xs">Supabase Anon Key</Label><Input placeholder="eyJhbGciOiJIUzI1NiIs..." value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="mt-1" /></div>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
-              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><Zap className="w-4 h-4 text-gray-600" /> Vercel</p>
-              <div className="space-y-3 mt-2">
-                <div><Label className="text-xs">Vercel Auth Token</Label><Input placeholder="vercel_xxxxx" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} className="mt-1" /></div>
-                <div><Label className="text-xs">Vercel Project ID</Label><Input placeholder="prj_xxxxx" value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} className="mt-1" /></div>
-              </div>
-            </div>
             <div className="bg-green-50 rounded-lg p-3 text-sm">
-              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><MessageCircle className="w-4 h-4 text-green-600" /> WhatsApp API</p>
-              <div className="space-y-3 mt-2">
-                <div><Label className="text-xs">API URL</Label><Input placeholder="https://api.evolution-api.com" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1" /></div>
-                <div><Label className="text-xs">API Token</Label><Input placeholder="xxxxxxxx" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" /></div>
-                <div><Label className="text-xs">Instance Name</Label><Input placeholder="minha-instancia" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1" /></div>
+              <p className="font-medium text-graphite flex items-center gap-1.5 mb-2"><MessageCircle className="w-4 h-4 text-green-600" /> Credenciais Z-API</p>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">API URL</Label>
+                  <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Instance ID</Label>
+                  <Input placeholder="3F5217F0ED99C172B0886272DDAD8C6F" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">API Token</Label>
+                  <Input type="password" placeholder="A5952CF5C5A11E0654F91542" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" />
+                </div>
               </div>
             </div>
           </div>
@@ -1701,13 +1581,20 @@ function SettingsTab({ userId }: { userId: string }) {
 
 /* ─────────────────── MAIN PAGE ─────────────────── */
 export default function HomePage() {
-  const { currentView } = useAppStore();
+  const { currentView, user, setView } = useAppStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // Auto-redirect: if user is logged in but viewing landing/auth, go to dashboard
+  useEffect(() => {
+    if (mounted && user && (currentView === 'landing' || currentView === 'auth')) {
+      setView('dashboard');
+    }
+  }, [mounted, user, currentView, setView]);
 
   if (!mounted) {
     return (

@@ -1,0 +1,1747 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import { toast } from 'sonner';
+     6→import { useAppStore } from '@/lib/store';
+     7→import type { AppView, Contact, Schedule, MessageHistory, MessageStyle, User, UserConfig } from '@/lib/types';
+     8→import { MESSAGE_STYLES, PRICING_PLANS } from '@/lib/types';
+     9→
+    10→import { Button } from '@/components/ui/button';
+    11→import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+    12→import { Input } from '@/components/ui/input';
+    13→import { Label } from '@/components/ui/label';
+    14→import { Badge } from '@/components/ui/badge';
+    15→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    16→import { Switch } from '@/components/ui/switch';
+    17→import { Separator } from '@/components/ui/separator';
+    18→import { ScrollArea } from '@/components/ui/scroll-area';
+    19→import { Checkbox } from '@/components/ui/checkbox';
+    20→import { Skeleton } from '@/components/ui/skeleton';
+    21→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    22→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    23→import {
+    24→  Heart, MessageCircle, Clock, User as UserIcon, Settings, LogOut, Plus, Trash2, Send,
+    25→  Check, X, ChevronRight, Zap, Shield, Crown, Sparkles, Eye, EyeOff,
+    26→  ChevronLeft, Info, Gift, ArrowRight, Phone, Mail, Lock,
+    27→  Loader2, HeartHandshake, CheckCircle2, RefreshCw, CreditCard, CalendarDays
+    28→} from 'lucide-react';
+    29→
+    30→const pageVariants = {
+    31→  initial: { opacity: 0, y: 20 },
+    32→  animate: { opacity: 1, y: 0 },
+    33→  exit: { opacity: 0, y: -20 },
+    34→};
+    35→
+    36→const stagger = {
+    37→  animate: { transition: { staggerChildren: 0.08 } },
+    38→};
+    39→
+    40→const fadeUp = {
+    41→  initial: { opacity: 0, y: 20 },
+    42→  animate: { opacity: 1, y: 0 },
+    43→};
+    44→
+    45→function formatPhone(value: string): string {
+    46→  const digits = value.replace(/\D/g, '').slice(0, 11);
+    47→  if (digits.length <= 2) return `(${digits}`;
+    48→  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    49→  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    50→}
+    51→
+    52→function parsePhoneToDigits(value: string): string {
+    53→  return value.replace(/\D/g, '');
+    54→}
+    55→
+    56→const styleLabels: Record<MessageStyle, string> = {
+    57→  romantic: 'Romântica',
+    58→  spicy: 'Apimentada',
+    59→  playful: 'Brincalhona',
+    60→  serious: 'Séria',
+    61→};
+    62→
+    63→const styleEmojis: Record<MessageStyle, string> = {
+    64→  romantic: '💕',
+    65→  spicy: '🔥',
+    66→  playful: '😊',
+    67→  serious: '🤝',
+    68→};
+    69→
+    70→/* ─────────────────── LANDING PAGE ─────────────────── */
+    71→function LandingPage() {
+    72→  const { setView, setShowPricing, showPricing } = useAppStore();
+    73→  const [userName, setUserName] = useState('');
+    74→  const [contactName, setContactName] = useState('');
+    75→  const [contactPhone, setContactPhone] = useState('');
+    76→  const [sendTime, setSendTime] = useState('08:00');
+    77→  const [style, setStyle] = useState<MessageStyle>('romantic');
+    78→  const [loading, setLoading] = useState(false);
+    79→  const [generatedMsg, setGeneratedMsg] = useState('');
+    80→  const [showResult, setShowResult] = useState(false);
+    81→
+    82→  const handleFreeTest = async () => {
+    83→    if (!userName || !contactName || !contactPhone) {
+    84→      toast.error('Preencha todos os campos obrigatórios');
+    85→      return;
+    86→    }
+    87→    if (parsePhoneToDigits(contactPhone).length < 10) {
+    88→      toast.error('Insira um número de WhatsApp válido');
+    89→      return;
+    90→    }
+    91→    setLoading(true);
+    92→    try {
+    93→      const res = await fetch('/api/free-test', {
+    94→        method: 'POST',
+    95→        headers: { 'Content-Type': 'application/json' },
+    96→        body: JSON.stringify({ userName, contactName, contactPhone, sendTime, style }),
+    97→      });
+    98→      const data = await res.json();
+    99→      if (data.error) throw new Error(data.error);
+   100→      setGeneratedMsg(data.message);
+   101→      setShowResult(true);
+   102→      toast.success('Mensagem gerada com sucesso! Seu amor vai adorar! ❤️');
+   103→    } catch (err) {
+   104→      toast.error(err instanceof Error ? err.message : 'Erro ao gerar mensagem');
+   105→    } finally {
+   106→      setLoading(false);
+   107→    }
+   108→  };
+   109→
+   110→  return (
+   111→    <div className="min-h-screen flex flex-col">
+   112→      {/* Header */}
+   113→      <header className="sticky top-0 z-50 glass-burgundy">
+   114→        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+   115→          <div className="flex items-center gap-2">
+   116→            <Heart className="w-7 h-7 text-burgundy animate-pulse-heart" fill="#722F37" />
+   117→            <span className="text-xl font-bold text-gradient-burgundy">WhatsRomance</span>
+   118→          </div>
+   119→          <nav className="flex items-center gap-2 sm:gap-4">
+   120→            <Button variant="ghost" onClick={() => setView('auth')} className="text-graphite hover:text-burgundy hover:bg-burgundy-50">
+   121→              <UserIcon className="w-4 h-4 sm:mr-2" />
+   122→              <span className="hidden sm:inline">Entrar</span>
+   123→            </Button>
+   124→            <Button
+   125→              onClick={() => document.getElementById('free-test')?.scrollIntoView({ behavior: 'smooth' })}
+   126→              className="bg-burgundy hover:bg-burgundy-dark text-white"
+   127→            >
+   128→              <Gift className="w-4 h-4 mr-2" />
+   129→              Teste Grátis
+   130→            </Button>
+   131→          </nav>
+   132→        </div>
+   133→      </header>
+   134→
+   135→      <main className="flex-1">
+   136→        {/* Hero */}
+   137→        <section className="relative overflow-hidden py-16 sm:py-24 lg:py-32">
+   138→          <div className="absolute inset-0 bg-gradient-to-b from-burgundy-50 via-rose-pastel-light to-background" />
+   139→          <div className="absolute top-20 left-10 text-burgundy-100 text-6xl opacity-30 animate-float">💕</div>
+   140→          <div className="absolute top-40 right-20 text-burgundy-100 text-5xl opacity-20 animate-float" style={{ animationDelay: '1s' }}>❤️</div>
+   141→          <div className="absolute bottom-20 left-1/4 text-burgundy-100 text-4xl opacity-25 animate-float" style={{ animationDelay: '2s' }}>🌹</div>
+   142→
+   143→          <div className="relative max-w-4xl mx-auto px-4 text-center">
+   144→            <motion.div variants={stagger} initial="initial" animate="animate">
+   145→              <motion.div variants={fadeUp}>
+   146→                <Badge className="mb-6 bg-burgundy/10 text-burgundy border-burgundy/20 hover:bg-burgundy/15 px-4 py-1.5 text-sm">
+   147→                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+   148→                  IA Especialista em Relacionamentos
+   149→                </Badge>
+   150→              </motion.div>
+   151→
+   152→              <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl lg:text-6xl font-bold text-graphite leading-tight mb-6">
+   153→                Deixe que nossa IA cuide do{' '}
+   154→                <span className="text-gradient-burgundy">romance</span> por você.
+   155→              </motion.h1>
+   156→
+   157→              <motion.p variants={fadeUp} className="text-lg sm:text-xl text-graphite-muted max-w-2xl mx-auto mb-10">
+   158→                Mensagens únicas, automatizadas e personalizadas para o seu amor,{' '}
+   159→                <strong className="text-graphite">365 dias por ano.</strong>
+   160→              </motion.p>
+   161→
+   162→              <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center">
+   163→                <Button
+   164→                  size="lg"
+   165→                  onClick={() => document.getElementById('free-test')?.scrollIntoView({ behavior: 'smooth' })}
+   166→                  className="bg-burgundy hover:bg-burgundy-dark text-white text-lg px-8 py-6 rounded-xl shadow-lg shadow-burgundy/20"
+   167→                >
+   168→                  <Gift className="w-5 h-5 mr-2" />
+   169→                  Teste Grátis Agora
+   170→                </Button>
+   171→                <Button
+   172→                  size="lg"
+   173→                  variant="outline"
+   174→                  onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+   175→                  className="border-burgundy/30 text-burgundy hover:bg-burgundy-50 text-lg px-8 py-6 rounded-xl"
+   176→                >
+   177→                  <CreditCard className="w-5 h-5 mr-2" />
+   178→                  Ver Planos
+   179→                </Button>
+   180→              </motion.div>
+   181→
+   182→              <motion.div variants={fadeUp} className="mt-12 flex flex-wrap justify-center gap-6 text-sm text-graphite-muted">
+   183→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Mensagens 100% únicas</div>
+   184→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Anti-repetição IA</div>
+   185→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> 4 estilos disponíveis</div>
+   186→                <div className="flex items-center gap-2"><Check className="w-4 h-4 text-burgundy" /> Agendamento fácil</div>
+   187→              </motion.div>
+   188→            </motion.div>
+   189→          </div>
+   190→        </section>
+   191→
+   192→        {/* Free Test Section */}
+   193→        <section id="free-test" className="py-16 sm:py-24">
+   194→          <div className="max-w-2xl mx-auto px-4">
+   195→            <motion.div
+   196→              initial={{ opacity: 0, y: 30 }}
+   197→              whileInView={{ opacity: 1, y: 0 }}
+   198→              viewport={{ once: true }}
+   199→              transition={{ duration: 0.5 }}
+   200→            >
+   201→              <Card className="shadow-xl border-burgundy/10 overflow-hidden">
+   202→                <CardHeader className="bg-gradient-to-r from-burgundy to-burgundy-light text-white text-center pb-6">
+   203→                  <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+   204→                    <Gift className="w-7 h-7" />
+   205→                  </div>
+   206→                  <CardTitle className="text-2xl">Teste Grátis</CardTitle>
+   207→                  <CardDescription className="text-white/80">
+   208→                    Veja a mágica acontecer — sem compromisso
+   209→                  </CardDescription>
+   210→                </CardHeader>
+   211→                <CardContent className="p-6 space-y-4">
+   212→                  {showResult ? (
+   213→                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+   214→                      <div className="text-center mb-4">
+   215→                        <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+   216→                        <h3 className="font-semibold text-lg text-graphite">Mensagem Gerada!</h3>
+   217→                        <p className="text-sm text-graphite-muted">Veja como a IA criou algo especial:</p>
+   218→                      </div>
+   219→                      <div className="bg-rose-pastel-light rounded-lg p-4 border border-burgundy/10">
+   220→                        <p className="text-graphite leading-relaxed whitespace-pre-wrap">{generatedMsg}</p>
+   221→                      </div>
+   222→                      <div className="flex flex-col sm:flex-row gap-3">
+   223→                        <Button onClick={() => { setShowResult(false); setGeneratedMsg(''); }} variant="outline" className="flex-1">
+   224→                          <RefreshCw className="w-4 h-4 mr-2" /> Gerar Outra
+   225→                        </Button>
+   226→                        <Button onClick={() => { setShowPricing(true); setView('landing'); setTimeout(() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }), 100); }} className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white">
+   227→                          <ArrowRight className="w-4 h-4 mr-2" /> Ver Planos
+   228→                        </Button>
+   229→                      </div>
+   230→                    </motion.div>
+   231→                  ) : (
+   232→                    <div className="space-y-4">
+   233→                      <div>
+   234→                        <Label htmlFor="userName">Seu Nome *</Label>
+   235→                        <Input id="userName" placeholder="Como você se chama?" value={userName} onChange={(e) => setUserName(e.target.value)} className="mt-1.5" />
+   236→                      </div>
+   237→                      <div>
+   238→                        <Label htmlFor="contactName">Nome do seu Amor *</Label>
+   239→                        <Input id="contactName" placeholder="O nome de quem vai receber" value={contactName} onChange={(e) => setContactName(e.target.value)} className="mt-1.5" />
+   240→                      </div>
+   241→                      <div>
+   242→                        <Label htmlFor="contactPhone">WhatsApp do Destinatário *</Label>
+   243→                        <div className="relative mt-1.5">
+   244→                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   245→                          <Input id="contactPhone" placeholder="(11) 99999-9999" value={contactPhone} onChange={(e) => setContactPhone(formatPhone(e.target.value))} className="pl-10" />
+   246→                        </div>
+   247→                      </div>
+   248→                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   249→                        <div>
+   250→                          <Label htmlFor="sendTime">Horário de Disparo</Label>
+   251→                          <div className="relative mt-1.5">
+   252→                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   253→                            <Input id="sendTime" type="time" value={sendTime} onChange={(e) => setSendTime(e.target.value)} className="pl-10" />
+   254→                          </div>
+   255→                        </div>
+   256→                        <div>
+   257→                          <Label>Tom da Mensagem</Label>
+   258→                          <Select value={style} onValueChange={(v) => setStyle(v as MessageStyle)}>
+   259→                            <SelectTrigger className="mt-1.5">
+   260→                              <SelectValue />
+   261→                            </SelectTrigger>
+   262→                            <SelectContent>
+   263→                              {MESSAGE_STYLES.map((s) => (
+   264→                                <SelectItem key={s.value} value={s.value}>
+   265→                                  {s.emoji} {s.label}
+   266→                                </SelectItem>
+   267→                              ))}
+   268→                            </SelectContent>
+   269→                          </Select>
+   270→                        </div>
+   271→                      </div>
+   272→                      <Button
+   273→                        onClick={handleFreeTest}
+   274→                        disabled={loading}
+   275→                        className="w-full bg-burgundy hover:bg-burgundy-dark text-white py-6 text-lg rounded-xl shadow-lg shadow-burgundy/20"
+   276→                      >
+   277→                        {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Gerando...</> : <><Send className="w-5 h-5 mr-2" /> Agendar Mensagem Grátis</>}
+   278→                      </Button>
+   279→                    </div>
+   280→                  )}
+   281→                </CardContent>
+   282→              </Card>
+   283→            </motion.div>
+   284→          </div>
+   285→        </section>
+   286→
+   287→        {/* Pricing Section */}
+   288→        <section id="pricing" className="py-16 sm:py-24 bg-gradient-to-b from-background via-burgundy-50/50 to-background">
+   289→          <div className="max-w-6xl mx-auto px-4">
+   290→            <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
+   291→              <h2 className="text-3xl sm:text-4xl font-bold text-graphite mb-4">
+   292→                Escolha o Plano <span className="text-gradient-burgundy">Perfeito</span>
+   293→              </h2>
+   294→              <p className="text-graphite-muted max-w-xl mx-auto">
+   295→                Comece com o teste grátis. Depois, escolha o plano que melhor se adapta à sua relação.
+   296→              </p>
+   297→            </motion.div>
+   298→
+   299→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+   300→              {PRICING_PLANS.map((plan, i) => (
+   301→                <motion.div
+   302→                  key={plan.id}
+   303→                  initial={{ opacity: 0, y: 30 }}
+   304→                  whileInView={{ opacity: 1, y: 0 }}
+   305→                  viewport={{ once: true }}
+   306→                  transition={{ delay: i * 0.1 }}
+   307→                >
+   308→                  <Card className={`relative h-full flex flex-col ${plan.popular ? 'border-2 border-burgundy shadow-xl shadow-burgundy/10' : 'border-burgundy/10'} hover:shadow-lg transition-shadow`}>
+   309→                    {plan.popular && (
+   310→                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+   311→                        <Badge className="bg-burgundy text-white px-3 py-1 shadow-md">
+   312→                          <Crown className="w-3 h-3 mr-1" /> Melhor Valor
+   313→                        </Badge>
+   314→                      </div>
+   315→                    )}
+   316→                    <CardHeader className="pb-3">
+   317→                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+   318→                      <CardDescription className="text-xs">{plan.period}</CardDescription>
+   319→                    </CardHeader>
+   320→                    <CardContent className="flex-1 space-y-4">
+   321→                      <div>
+   322→                        <span className="text-3xl font-bold text-graphite">{plan.totalPrice}</span>
+   323→                        {plan.credits > 0 && (
+   324→                          <p className="text-sm text-graphite-muted mt-1">{plan.credits} mensagens incluídas</p>
+   325→                        )}
+   326→                        <p className="text-sm font-medium text-burgundy mt-1">
+   327→                          R$ {plan.pricePerMsg.toFixed(2).replace('.', ',')} por mensagem
+   328→                        </p>
+   329→                      </div>
+   330→                      <Separator />
+   331→                      <ul className="space-y-2">
+   332→                        {plan.features.map((f) => (
+   333→                          <li key={f} className="flex items-start gap-2 text-sm text-graphite-muted">
+   334→                            <Check className="w-4 h-4 text-burgundy mt-0.5 shrink-0" />
+   335→                            {f}
+   336→                          </li>
+   337→                        ))}
+   338→                      </ul>
+   339→                    </CardContent>
+   340→                    <CardFooter>
+   341→                      <Button
+   342→                        className={`w-full ${plan.popular ? 'bg-burgundy hover:bg-burgundy-dark text-white' : 'bg-secondary hover:bg-secondary/80 text-secondary-foreground'}`}
+   343→                        onClick={() => setView('auth')}
+   344→                      >
+   345→                        {plan.id === 'avulso' ? 'Recarregar' : 'Assinar Agora'}
+   346→                        <ChevronRight className="w-4 h-4 ml-1" />
+   347→                      </Button>
+   348→                    </CardFooter>
+   349→                  </Card>
+   350→                </motion.div>
+   351→              ))}
+   352→            </div>
+   353→          </div>
+   354→        </section>
+   355→      </main>
+   356→
+   357→      {/* Footer */}
+   358→      <footer className="mt-auto border-t border-burgundy/10 bg-white py-8">
+   359→        <div className="max-w-7xl mx-auto px-4 text-center">
+   360→          <div className="flex items-center justify-center gap-2 mb-3">
+   361→            <Heart className="w-5 h-5 text-burgundy" fill="#722F37" />
+   362→            <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
+   363→          </div>
+   364→          <p className="text-sm text-graphite-muted">
+   365→            &copy; 2025 WhatsRomance. Todos os direitos reservados.
+   366→          </p>
+   367→          <p className="text-xs text-graphite-muted/60 mt-2">
+   368→            Feito com ❤️ para fortalecer relacionamentos
+   369→          </p>
+   370→        </div>
+   371→      </footer>
+   372→    </div>
+   373→  );
+   374→}
+   375→
+   376→/* ─────────────────── AUTH PAGE ─────────────────── */
+   377→function AuthPage() {
+   378→  const { setView, setUser, user } = useAppStore();
+   379→  const [mode, setMode] = useState<'login' | 'register'>('login');
+   380→  const [name, setName] = useState('');
+   381→  const [email, setEmail] = useState('');
+   382→  const [password, setPassword] = useState('');
+   383→  const [whatsapp, setWhatsapp] = useState('');
+   384→  const [showPass, setShowPass] = useState(false);
+   385→  const [loading, setLoading] = useState(false);
+   386→
+   387→  const handleSubmit = async (e: React.FormEvent) => {
+   388→    e.preventDefault();
+   389→    if (!name || !email || !password) {
+   390→      toast.error('Preencha todos os campos obrigatórios');
+   391→      return;
+   392→    }
+   393→    setLoading(true);
+   394→    try {
+   395→      const res = await fetch('/api/auth', {
+   396→        method: 'POST',
+   397→        headers: { 'Content-Type': 'application/json' },
+   398→        body: JSON.stringify({ name, email, password, whatsapp: parsePhoneToDigits(whatsapp) || undefined }),
+   399→      });
+   400→      const data = await res.json();
+   401→      if (data.error) throw new Error(data.error);
+   402→
+   403→      const userData: User = {
+   404→        id: data.id,
+   405→        name: data.name,
+   406→        email: data.email,
+   407→        whatsapp: data.whatsapp,
+   408→        isDev: data.isDev,
+   409→        credits: data.credits,
+   410→        createdAt: data.createdAt,
+   411→      };
+   412→      setUser(userData);
+   413→
+   414→      if (data.isDev) {
+   415→        toast.success('Modo Desenvolvedor ativado! Créditos ilimitados. 👑');
+   416→        setView('dashboard');
+   417→      } else {
+   418→        toast.success(`Bem-vindo(a), ${data.name}! 💕`);
+   419→        setView('onboarding');
+   420→      }
+   421→    } catch (err) {
+   422→      toast.error(err instanceof Error ? err.message : 'Erro ao fazer login');
+   423→    } finally {
+   424→      setLoading(false);
+   425→    }
+   426→  };
+   427→
+   428→  return (
+   429→    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-burgundy-50 via-rose-pastel-light to-background px-4 py-12">
+   430→      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+   431→        <Card className="shadow-xl border-burgundy/10">
+   432→          <CardHeader className="text-center pb-2">
+   433→            <div className="mx-auto w-14 h-14 rounded-full bg-burgundy/10 flex items-center justify-center mb-3">
+   434→              <Heart className="w-7 h-7 text-burgundy" fill="#722F37" />
+   435→            </div>
+   436→            <CardTitle className="text-2xl text-gradient-burgundy">WhatsRomance</CardTitle>
+   437→            <CardDescription>Entre na sua conta ou crie uma nova</CardDescription>
+   438→          </CardHeader>
+   439→          <CardContent>
+   440→            <Tabs value={mode} onValueChange={(v) => setMode(v as 'login' | 'register')} className="mb-6">
+   441→              <TabsList className="grid w-full grid-cols-2">
+   442→                <TabsTrigger value="login">Entrar</TabsTrigger>
+   443→                <TabsTrigger value="register">Cadastrar</TabsTrigger>
+   444→              </TabsList>
+   445→            </Tabs>
+   446→
+   447→            <form onSubmit={handleSubmit} className="space-y-4">
+   448→              {mode === 'register' && (
+   449→                <div>
+   450→                  <Label htmlFor="name">Nome Completo</Label>
+   451→                  <div className="relative mt-1.5">
+   452→                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   453→                    <Input id="name" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" />
+   454→                  </div>
+   455→                </div>
+   456→              )}
+   457→              <div>
+   458→                <Label htmlFor="email">E-mail</Label>
+   459→                <div className="relative mt-1.5">
+   460→                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   461→                  <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" />
+   462→                </div>
+   463→              </div>
+   464→              {mode === 'register' && (
+   465→                <div>
+   466→                  <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
+   467→                  <div className="relative mt-1.5">
+   468→                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   469→                    <Input id="whatsapp" placeholder="(11) 99999-9999" value={whatsapp} onChange={(e) => setWhatsapp(formatPhone(e.target.value))} className="pl-10" />
+   470→                  </div>
+   471→                </div>
+   472→              )}
+   473→              <div>
+   474→                <Label htmlFor="password">Senha</Label>
+   475→                <div className="relative mt-1.5">
+   476→                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+   477→                  <Input id="password" type={showPass ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10" />
+   478→                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-graphite-muted hover:text-graphite">
+   479→                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+   480→                  </button>
+   481→                </div>
+   482→              </div>
+   483→              <Button type="submit" disabled={loading} className="w-full bg-burgundy hover:bg-burgundy-dark text-white py-6">
+   484→                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Aguarde...</> : mode === 'login' ? 'Entrar' : 'Criar Conta'}
+   485→              </Button>
+   486→            </form>
+   487→          </CardContent>
+   488→          <CardFooter className="justify-center">
+   489→            <Button variant="link" onClick={() => setView('landing')} className="text-graphite-muted">
+   490→              <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao início
+   491→            </Button>
+   492→          </CardFooter>
+   493→        </Card>
+   494→      </motion.div>
+   495→    </div>
+   496→  );
+   497→}
+   498→
+   499→/* ─────────────────── ONBOARDING PAGE ─────────────────── */
+   500→function OnboardingPage() {
+   501→  const { user, setView, setConfig } = useAppStore();
+   502→  const [step, setStep] = useState(1);
+   503→  const [loading, setLoading] = useState(false);
+   504→
+   505→  // Supabase
+   506→  const [supabaseUrl, setSupabaseUrl] = useState('');
+   507→  const [supabaseKey, setSupabaseKey] = useState('');
+   508→  // Vercel
+   509→  const [vercelToken, setVercelToken] = useState('');
+   510→  const [vercelProjectId, setVercelProjectId] = useState('');
+   511→  // WhatsApp
+   512→  const [whatsappApiUrl, setWhatsappApiUrl] = useState('');
+   513→  const [whatsappApiToken, setWhatsappApiToken] = useState('');
+   514→  const [whatsappInstanceName, setWhatsappInstanceName] = useState('');
+   515→
+   516→  const handleSave = async () => {
+   517→    if (!user) return;
+   518→    setLoading(true);
+   519→    try {
+   520→      const configData: UserConfig = {
+   521→        supabaseUrl, supabaseKey, vercelToken, vercelProjectId,
+   522→        whatsappApiUrl, whatsappApiToken, whatsappInstanceName,
+   523→        setupCompleted: true,
+   524→      };
+   525→      const res = await fetch('/api/onboarding', {
+   526→        method: 'POST',
+   527→        headers: { 'Content-Type': 'application/json' },
+   528→        body: JSON.stringify({ userId: user.id, ...configData }),
+   529→      });
+   530→      const data = await res.json();
+   531→      if (data.error) throw new Error(data.error);
+   532→      setConfig(configData);
+   533→      toast.success('Configuração salva com sucesso! 🎉');
+   534→      setView('dashboard');
+   535→    } catch (err) {
+   536→      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+   537→    } finally {
+   538→      setLoading(false);
+   539→    }
+   540→  };
+   541→
+   542→  const handleSkip = () => {
+   543→    if (!user) return;
+   544→    const configData: UserConfig = {
+   545→      supabaseUrl: 'https://demo.supabase.co',
+   546→      supabaseKey: 'demo-key',
+   547→      vercelToken: 'demo-token',
+   548→      vercelProjectId: 'demo-project',
+   549→      whatsappApiUrl: 'https://demo.evolution-api.com',
+   550→      whatsappApiToken: 'demo-token',
+   551→      whatsappInstanceName: 'demo-instance',
+   552→      setupCompleted: true,
+   553→    };
+   554→    setConfig(configData);
+   555→    toast.info('Configuração de demonstração aplicada. Configure depois no painel.');
+   556→    setView('dashboard');
+   557→  };
+   558→
+   559→  const steps = [
+   560→    { num: 1, label: 'Supabase' },
+   561→    { num: 2, label: 'Vercel' },
+   562→    { num: 3, label: 'WhatsApp' },
+   563→  ];
+   564→
+   565→  return (
+   566→    <div className="min-h-screen flex flex-col bg-gradient-to-br from-burgundy-50 via-background to-rose-pastel-light">
+   567→      {/* Header */}
+   568→      <header className="glass-burgundy">
+   569→        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+   570→          <div className="flex items-center gap-2">
+   571→            <Heart className="w-6 h-6 text-burgundy" fill="#722F37" />
+   572→            <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
+   573→          </div>
+   574→          <Button variant="ghost" size="sm" onClick={handleSkip} className="text-graphite-muted">
+   575→            Pular Configuração <ChevronRight className="w-4 h-4 ml-1" />
+   576→          </Button>
+   577→        </div>
+   578→      </header>
+   579→
+   580→      <main className="flex-1 flex items-center justify-center px-4 py-8">
+   581→        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl">
+   582→          {/* Step indicator */}
+   583→          <div className="flex items-center justify-center gap-4 mb-8">
+   584→            {steps.map((s, i) => (
+   585→              <div key={s.num} className="flex items-center gap-2">
+   586→                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${step === s.num ? 'bg-burgundy text-white' : step > s.num ? 'bg-burgundy/20 text-burgundy' : 'bg-muted text-graphite-muted'}`}>
+   587→                  {step > s.num ? <Check className="w-5 h-5" /> : s.num}
+   588→                </div>
+   589→                <span className={`text-sm hidden sm:inline ${step === s.num ? 'text-burgundy font-medium' : 'text-graphite-muted'}`}>{s.label}</span>
+   590→                {i < steps.length - 1 && <div className={`w-8 sm:w-16 h-0.5 ${step > s.num ? 'bg-burgundy' : 'bg-muted'}`} />}
+   591→              </div>
+   592→            ))}
+   593→          </div>
+   594→
+   595→          <AnimatePresence mode="wait">
+   596→            {step === 1 && (
+   597→              <motion.div key="step1" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+   598→                <Card className="shadow-xl border-burgundy/10">
+   599→                  <CardHeader>
+   600→                    <div className="flex items-center gap-3">
+   601→                      <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center"><Shield className="w-5 h-5 text-emerald-600" /></div>
+   602→                      <div>
+   603→                        <CardTitle>Conexão com Supabase</CardTitle>
+   604→                        <CardDescription>Banco de dados da sua aplicação</CardDescription>
+   605→                      </div>
+   606→                    </div>
+   607→                  </CardHeader>
+   608→                  <CardContent className="space-y-4">
+   609→                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   610→                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar suas credenciais:</p>
+   611→                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   612→                        <li>Acesse o painel do seu projeto no <strong>Supabase</strong> (supabase.com).</li>
+   613→                        <li>No menu lateral esquerdo, clique no ícone de engrenagem (<strong>Project Settings</strong>).</li>
+   614→                        <li>Vá até a opção <strong>&quot;API&quot;</strong>.</li>
+   615→                        <li>Localize e copie os campos <strong>&quot;Project URL&quot;</strong> e <strong>&quot;Project API anon key&quot;</strong>.</li>
+   616→                      </ol>
+   617→                    </div>
+   618→                    <div>
+   619→                      <Label>Supabase URL</Label>
+   620→                      <Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="mt-1.5" />
+   621→                    </div>
+   622→                    <div>
+   623→                      <Label>Supabase Anon Key</Label>
+   624→                      <Input placeholder="eyJhbGciOiJIUzI1NiIs..." value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="mt-1.5" />
+   625→                    </div>
+   626→                  </CardContent>
+   627→                  <CardFooter className="flex justify-between">
+   628→                    <Button variant="ghost" onClick={() => setView('landing')}><ChevronLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+   629→                    <Button onClick={() => setStep(2)} className="bg-burgundy hover:bg-burgundy-dark text-white">Próximo <ChevronRight className="w-4 h-4 ml-1" /></Button>
+   630→                  </CardFooter>
+   631→                </Card>
+   632→              </motion.div>
+   633→            )}
+   634→
+   635→            {step === 2 && (
+   636→              <motion.div key="step2" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+   637→                <Card className="shadow-xl border-burgundy/10">
+   638→                  <CardHeader>
+   639→                    <div className="flex items-center gap-3">
+   640→                      <div className="w-10 h-10 rounded-lg bg-gray-500/10 flex items-center justify-center"><Zap className="w-5 h-5 text-gray-700" /></div>
+   641→                      <div>
+   642→                        <CardTitle>Pipeline de Deploy (Vercel)</CardTitle>
+   643→                        <CardDescription>Hospedagem e deploy do projeto</CardDescription>
+   644→                      </div>
+   645→                    </div>
+   646→                  </CardHeader>
+   647→                  <CardContent className="space-y-4">
+   648→                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   649→                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
+   650→                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   651→                        <li>Acesse o painel da <strong>Vercel</strong> (vercel.com) e clique na sua foto de perfil no canto superior direito para ir em <strong>&quot;Settings&quot;</strong>.</li>
+   652→                        <li>No menu esquerdo, vá em <strong>&quot;Tokens&quot;</strong> e clique em <strong>&quot;Create&quot;</strong> para gerar um token.</li>
+   653→                        <li>Para obter o Project ID, entre no repositório do seu projeto, clique na aba <strong>&quot;Settings&quot;</strong> e copie o ID listado em <strong>&quot;General&quot;</strong>.</li>
+   654→                      </ol>
+   655→                    </div>
+   656→                    <div>
+   657→                      <Label>Vercel Auth Token</Label>
+   658→                      <Input placeholder="vercel_xxxxxxxxxxxxx" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} className="mt-1.5" />
+   659→                    </div>
+   660→                    <div>
+   661→                      <Label>Vercel Project ID</Label>
+   662→                      <Input placeholder="prj_xxxxxxxxxxxxx" value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} className="mt-1.5" />
+   663→                    </div>
+   664→                  </CardContent>
+   665→                  <CardFooter className="flex justify-between">
+   666→                    <Button variant="ghost" onClick={() => setStep(1)}><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
+   667→                    <Button onClick={() => setStep(3)} className="bg-burgundy hover:bg-burgundy-dark text-white">Próximo <ChevronRight className="w-4 h-4 ml-1" /></Button>
+   668→                  </CardFooter>
+   669→                </Card>
+   670→              </motion.div>
+   671→            )}
+   672→
+   673→            {step === 3 && (
+   674→              <motion.div key="step3" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+   675→                <Card className="shadow-xl border-burgundy/10">
+   676→                  <CardHeader>
+   677→                    <div className="flex items-center gap-3">
+   678→                      <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-green-600" /></div>
+   679→                      <div>
+   680→                        <CardTitle>Gateway do WhatsApp</CardTitle>
+   681→                        <CardDescription>API para envio de mensagens</CardDescription>
+   682→                      </div>
+   683→                    </div>
+   684→                  </CardHeader>
+   685→                  <CardContent className="space-y-4">
+   686→                    <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
+   687→                      <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar:</p>
+   688→                      <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
+   689→                        <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
+   690→                        <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
+   691→                        <li>Copie a <strong>&quot;API URL&quot;</strong> (padrão: <code className="text-xs bg-burgundy/10 px-1 rounded">https://api.z-api.io</code>), o seu <strong>Token</strong> e o nome da <strong>Instância</strong>.</li>
+   692→                      </ol>
+   693→                    </div>
+   694→                    <div>
+   695→                      <Label>WhatsApp API URL</Label>
+   696→                      <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
+   697→                    </div>
+   698→                    <div>
+   699→                      <Label>API Token (ApiKey)</Label>
+   700→                      <Input placeholder="xxxxxxxxxxxxxxxx" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
+   701→                    </div>
+   702→                    <div>
+   703→                      <Label>Instance Name</Label>
+   704→                      <Input placeholder="minha-instancia-whatsapp" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1.5" />
+   705→                    </div>
+   706→                  </CardContent>
+   707→                  <CardFooter className="flex justify-between">
+   708→                    <Button variant="ghost" onClick={() => setStep(2)}><ChevronLeft className="w-4 h-4 mr-1" /> Anterior</Button>
+   709→                    <Button onClick={handleSave} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white">
+   710→                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar e Continuar</>}
+   711→                    </Button>
+   712→                  </CardFooter>
+   713→                </Card>
+   714→              </motion.div>
+   715→            )}
+   716→          </AnimatePresence>
+   717→        </motion.div>
+   718→      </main>
+   719→    </div>
+   720→  );
+   721→}
+   722→
+   723→/* ─────────────────── DASHBOARD ─────────────────── */
+   724→function Dashboard() {
+   725→  const { user, isDevMode, logout, setView } = useAppStore();
+   726→  const [contacts, setContacts] = useState<Contact[]>([]);
+   727→  const [schedules, setSchedules] = useState<Schedule[]>([]);
+   728→  const [history, setHistory] = useState<MessageHistory[]>([]);
+   729→  const [loading, setLoading] = useState(true);
+   730→
+   731→  const loadData = useCallback(async () => {
+   732→    if (!user) return;
+   733→    try {
+   734→      const [cRes, sRes, hRes] = await Promise.all([
+   735→        fetch(`/api/contacts?userId=${user.id}`),
+   736→        fetch(`/api/schedules?userId=${user.id}`),
+   737→        fetch(`/api/messages?userId=${user.id}`),
+   738→      ]);
+   739→      const cData = await cRes.json();
+   740→      const sData = await sRes.json();
+   741→      const hData = await hRes.json();
+   742→      setContacts(cData.error ? [] : cData);
+   743→      setSchedules(sData.error ? [] : sData);
+   744→      setHistory(hData.error ? [] : hData);
+   745→    } catch {
+   746→      // silently fail
+   747→    } finally {
+   748→      setLoading(false);
+   749→    }
+   750→  }, [user]);
+   751→
+   752→  useEffect(() => { loadData(); }, [loadData]);
+   753→
+   754→  if (!user) return null;
+   755→
+   756→  return (
+   757→    <div className="min-h-screen flex flex-col bg-gradient-to-b from-burgundy-50/30 to-background">
+   758→      {/* Top Bar */}
+   759→      <header className="sticky top-0 z-50 glass-burgundy">
+   760→        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+   761→          <div className="flex items-center gap-3">
+   762→            <Heart className="w-6 h-6 text-burgundy" fill="#722F37" />
+   763→            <span className="font-bold text-gradient-burgundy hidden sm:inline">WhatsRomance</span>
+   764→          </div>
+   765→          <div className="flex items-center gap-2 sm:gap-4">
+   766→            {isDevMode ? (
+   767→              <Badge className="bg-amber-500/10 text-amber-700 border-amber-300 px-3 py-1">
+   768→                <Crown className="w-3.5 h-3.5 mr-1" /> Créditos Ilimitados [Modo Dev]
+   769→              </Badge>
+   770→            ) : (
+   771→              <CreditBadge userId={user.id} credits={user.credits} onUpdate={loadData} />
+   772→            )}
+   773→            <Button variant="ghost" size="sm" onClick={logout} className="text-graphite-muted hover:text-burgundy">
+   774→              <LogOut className="w-4 h-4 sm:mr-2" />
+   775→              <span className="hidden sm:inline">Sair</span>
+   776→            </Button>
+   777→          </div>
+   778→        </div>
+   779→      </header>
+   780→
+   781→      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 sm:py-8">
+   782→        {/* Welcome Banner */}
+   783→        <motion.div
+   784→          initial={{ opacity: 0, y: 10 }}
+   785→          animate={{ opacity: 1, y: 0 }}
+   786→          className="mb-6 p-4 sm:p-5 rounded-xl bg-gradient-to-r from-burgundy to-burgundy-light text-white"
+   787→        >
+   788→          <div className="flex items-center gap-3">
+   789→            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+   790→              <HeartHandshake className="w-5 h-5" />
+   791→            </div>
+   792→            <div>
+   793→              <h2 className="font-semibold text-lg">Olá, {user.name}! {isDevMode ? '👑' : '💕'}</h2>
+   794→              <p className="text-white/80 text-sm">Gerencie seus agendamentos e mantenha a chama acesa.</p>
+   795→            </div>
+   796→          </div>
+   797→        </motion.div>
+   798→
+   799→        <Tabs defaultValue="schedules">
+   800→          <TabsList className="grid w-full grid-cols-3 mb-6">
+   801→            <TabsTrigger value="schedules" className="text-xs sm:text-sm">
+   802→              <CalendarDays className="w-4 h-4 sm:mr-1.5" /> Agendamentos
+   803→            </TabsTrigger>
+   804→            <TabsTrigger value="history" className="text-xs sm:text-sm">
+   805→              <Clock className="w-4 h-4 sm:mr-1.5" /> Histórico
+   806→            </TabsTrigger>
+   807→            <TabsTrigger value="settings" className="text-xs sm:text-sm">
+   808→              <Settings className="w-4 h-4 sm:mr-1.5" /> Configurações
+   809→            </TabsTrigger>
+   810→          </TabsList>
+   811→
+   812→          <TabsContent value="schedules">
+   813→            {loading ? (
+   814→              <div className="space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" /></div>
+   815→            ) : (
+   816→              <ScheduleTab contacts={contacts} schedules={schedules} userId={user.id} userName={user.name} isDev={user.isDev} onUpdate={loadData} />
+   817→            )}
+   818→          </TabsContent>
+   819→
+   820→          <TabsContent value="history">
+   821→            {loading ? (
+   822→              <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
+   823→            ) : (
+   824→              <HistoryTab history={history} />
+   825→            )}
+   826→          </TabsContent>
+   827→
+   828→          <TabsContent value="settings">
+   829→            <SettingsTab userId={user.id} />
+   830→          </TabsContent>
+   831→        </Tabs>
+   832→      </main>
+   833→
+   834→      {/* Footer */}
+   835→      <footer className="mt-auto border-t border-burgundy/10 bg-white py-4">
+   836→        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+   837→          <div className="flex items-center gap-2">
+   838→            <Heart className="w-4 h-4 text-burgundy" fill="#722F37" />
+   839→            <span className="text-sm font-medium text-gradient-burgundy">WhatsRomance</span>
+   840→          </div>
+   841→          <p className="text-xs text-graphite-muted">&copy; 2025 WhatsRomance &middot; Feito com ❤️ para fortalecer relacionamentos</p>
+   842→        </div>
+   843→      </footer>
+   844→    </div>
+   845→  );
+   846→}
+   847→
+   848→/* Credit Badge */
+   849→function CreditBadge({ userId, credits, onUpdate }: { userId: string; credits: number; onUpdate: () => void }) {
+   850→  const [balance, setBalance] = useState(credits);
+   851→  const [showRecharge, setShowRecharge] = useState(false);
+   852→
+   853→  useEffect(() => {
+   854→    const loadCredits = async () => {
+   855→      try {
+   856→        const res = await fetch(`/api/credits?userId=${userId}`);
+   857→        const data = await res.json();
+   858→        if (data.credits !== undefined) setBalance(data.credits);
+   859→      } catch { /* ignore */ }
+   860→    };
+   861→    loadCredits();
+   862→  }, [userId]);
+   863→
+   864→  const handleRecharge = async (planId: string) => {
+   865→    const plan = PRICING_PLANS.find(p => p.id === planId);
+   866→    if (!plan) return;
+   867→    // For avulso, prompt for custom amount
+   868→    if (planId === 'avulso') {
+   869→      const amountStr = prompt('Quantos créditos deseja comprar? (mín. 10)');
+   870→      if (!amountStr) return;
+   871→      const amount = parseInt(amountStr, 10);
+   872→      if (isNaN(amount) || amount < 10) {
+   873→        toast.error('Mínimo de 10 créditos');
+   874→        return;
+   875→      }
+   876→      try {
+   877→        const res = await fetch('/api/credits/add', {
+   878→          method: 'POST',
+   879→          headers: { 'Content-Type': 'application/json' },
+   880→          body: JSON.stringify({ userId, amount, planName: `Avulso (${amount} créditos)` }),
+   881→        });
+   882→        const data = await res.json();
+   883→        if (data.error) throw new Error(data.error);
+   884→        setBalance(data.credits);
+   885→        toast.success(`${amount} créditos adicionados! 🎉`);
+   886→        setShowRecharge(false);
+   887→        onUpdate();
+   888→      } catch (err) {
+   889→        toast.error(err instanceof Error ? err.message : 'Erro');
+   890→      }
+   891→      return;
+   892→    }
+   893→    if (!plan.credits) return;
+   894→    try {
+   895→      const res = await fetch('/api/credits/add', {
+   896→        method: 'POST',
+   897→        headers: { 'Content-Type': 'application/json' },
+   898→        body: JSON.stringify({ userId, amount: plan.credits, planName: plan.name }),
+   899→      });
+   900→      const data = await res.json();
+   901→      if (data.error) throw new Error(data.error);
+   902→      setBalance(data.credits);
+   903→      toast.success(`${plan.credits} créditos adicionados! 🎉`);
+   904→      setShowRecharge(false);
+   905→      onUpdate();
+   906→    } catch (err) {
+   907→      toast.error(err instanceof Error ? err.message : 'Erro');
+   908→    }
+   909→  };
+   910→
+   911→  const pct = balance > 0 ? Math.min((balance / 365) * 100, 100) : 0;
+   912→
+   913→  return (
+   914→    <>
+   915→      <Dialog open={showRecharge} onOpenChange={setShowRecharge}>
+   916→        <DialogTrigger asChild>
+   917→          <Button variant="outline" size="sm" className="text-burgundy border-burgundy/30 hover:bg-burgundy-50">
+   918→            <CreditCard className="w-4 h-4 mr-1.5" />
+   919→            <span className="hidden sm:inline">{balance} créditos</span>
+   920→            <span className="sm:hidden">{balance}</span>
+   921→          </Button>
+   922→        </DialogTrigger>
+   923→        <DialogContent className="max-w-lg">
+   924→          <DialogHeader>
+   925→            <DialogTitle>Recarregar Créditos</DialogTitle>
+   926→            <DialogDescription>Escolha um plano para continuar enviando mensagens</DialogDescription>
+   927→          </DialogHeader>
+   928→          <div className="space-y-3 py-4">
+   929→            {PRICING_PLANS.map(p => (
+   930→              <Card key={p.id} className={`cursor-pointer transition-all hover:shadow-md ${p.popular ? 'border-2 border-burgundy' : ''}`} onClick={() => handleRecharge(p.id)}>
+   931→                <CardContent className="p-4 flex items-center justify-between">
+   932→                  <div>
+   933→                    <p className="font-semibold text-graphite">{p.name}</p>
+   934→                    <p className="text-sm text-graphite-muted">{p.totalPrice} {p.credits > 0 ? `· ${p.credits} mensagens` : '· R$ 0,50/unidade'}</p>
+   935→                  </div>
+   936→                  <Button size="sm" className="bg-burgundy hover:bg-burgundy-dark text-white">
+   937→                    {p.id === 'avulso' ? 'Recarregar' : 'Assinar'}
+   938→                  </Button>
+   939→                </CardContent>
+   940→              </Card>
+   941→            ))}
+   942→          </div>
+   943→        </DialogContent>
+   944→      </Dialog>
+   945→      {balance <= 5 && balance > 0 && (
+   946→        <Badge variant="destructive" className="text-xs animate-pulse">Baixo!</Badge>
+   947→      )}
+   948→      {balance === 0 && (
+   949→        <Badge variant="destructive" className="text-xs">Zerado!</Badge>
+   950→      )}
+   951→    </>
+   952→  );
+   953→}
+   954→
+   955→/* ─── Create Schedule Dialog ─── */
+   956→function CreateScheduleDialog({
+   957→  contacts, userId, open, onOpenChange, onSuccess
+   958→}: {
+   959→  contacts: Contact[]; userId: string; open: boolean; onOpenChange: (v: boolean) => void; onSuccess: () => void;
+   960→}) {
+   961→  const [contactId, setContactId] = useState('');
+   962→  const [selectedStyles, setSelectedStyles] = useState<MessageStyle[]>(['romantic']);
+   963→  const [times, setTimes] = useState<string[]>(['08:00']);
+   964→  const [newTime, setNewTime] = useState('12:00');
+   965→  const [loading, setLoading] = useState(false);
+   966→
+   967→  const toggleStyle = (s: MessageStyle) => {
+   968→    setSelectedStyles(prev =>
+   969→      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+   970→    );
+   971→  };
+   972→
+   973→  const addTime = () => {
+   974→    if (newTime && !times.includes(newTime) && times.length < 5) {
+   975→      setTimes([...times, newTime]);
+   976→      setNewTime('');
+   977→    }
+   978→  };
+   979→  const removeTime = (t: string) => setTimes(times.filter(x => x !== t));
+   980→
+   981→  const handleCreate = async () => {
+   982→    if (!contactId || selectedStyles.length === 0 || times.length === 0) {
+   983→      toast.error('Selecione um contato, pelo menos um estilo e um horário');
+   984→      return;
+   985→    }
+   986→    setLoading(true);
+   987→    try {
+   988→      const res = await fetch('/api/schedules', {
+   989→        method: 'POST',
+   990→        headers: { 'Content-Type': 'application/json' },
+   991→        body: JSON.stringify({
+   992→          userId, contactId, messageStyles: selectedStyles,
+   993→          timesPerDay: times.length, sendTimes: times,
+   994→        }),
+   995→      });
+   996→      const data = await res.json();
+   997→      if (data.error) throw new Error(data.error);
+   998→      toast.success('Agendamento criado com sucesso! 📅');
+   999→      onOpenChange(false);
+  1000→      resetForm();
+  1001→      onSuccess();
+  1002→    } catch (err) {
+  1003→      toast.error(err instanceof Error ? err.message : 'Erro ao criar agendamento');
+  1004→    } finally {
+  1005→      setLoading(false);
+  1006→    }
+  1007→  };
+  1008→
+  1009→  const resetForm = () => {
+  1010→    setContactId('');
+  1011→    setSelectedStyles(['romantic']);
+  1012→    setTimes(['08:00']);
+  1013→    setNewTime('12:00');
+  1014→  };
+  1015→
+  1016→  return (
+  1017→    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+  1018→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+  1019→        <DialogHeader>
+  1020→          <DialogTitle className="flex items-center gap-2">
+  1021→            <CalendarDays className="w-5 h-5 text-burgundy" />
+  1022→            Criar Agendamento
+  1023→          </DialogTitle>
+  1024→          <DialogDescription>Configure o envio automático de mensagens para um contato</DialogDescription>
+  1025→        </DialogHeader>
+  1026→
+  1027→        <div className="space-y-5 py-3">
+  1028→          {/* Contact Selection */}
+  1029→          <div>
+  1030→            <Label className="text-sm font-medium">Contato *</Label>
+  1031→            <Select value={contactId} onValueChange={setContactId}>
+  1032→              <SelectTrigger className="mt-1.5">
+  1033→                <SelectValue placeholder="Selecione um contato" />
+  1034→              </SelectTrigger>
+  1035→              <SelectContent>
+  1036→                {contacts.map(c => (
+  1037→                  <SelectItem key={c.id} value={c.id}>{c.name} — {c.phone}</SelectItem>
+  1038→                ))}
+  1039→              </SelectContent>
+  1040→            </Select>
+  1041→          </div>
+  1042→
+  1043→          {/* Style Selection */}
+  1044→          <div>
+  1045→            <Label className="text-sm font-medium">Estilos de Mensagem * <span className="text-graphite-muted font-normal">(pode marcar mais de um)</span></Label>
+  1046→            <div className="grid grid-cols-2 gap-2 mt-2">
+  1047→              {MESSAGE_STYLES.map(s => (
+  1048→                <label
+  1049→                  key={s.value}
+  1050→                  className={`flex items-center gap-2.5 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+  1051→                    selectedStyles.includes(s.value)
+  1052→                      ? 'border-burgundy bg-burgundy-50'
+  1053→                      : 'border-burgundy/10 hover:border-burgundy/30'
+  1054→                  }`}
+  1055→                >
+  1056→                  <Checkbox
+  1057→                    checked={selectedStyles.includes(s.value)}
+  1058→                    onCheckedChange={() => toggleStyle(s.value)}
+  1059→                  />
+  1060→                  <div>
+  1061→                    <span className="text-sm font-medium">{s.emoji} {s.label}</span>
+  1062→                    <p className="text-xs text-graphite-muted">{s.description}</p>
+  1063→                  </div>
+  1064→                </label>
+  1065→              ))}
+  1066→            </div>
+  1067→          </div>
+  1068→
+  1069→          {/* Times Selection */}
+  1070→          <div>
+  1071→            <Label className="text-sm font-medium">
+  1072→              Horários de Envio *
+  1073→              <span className="text-graphite-muted font-normal ml-1">({times.length}x ao dia, máx. 5)</span>
+  1074→            </Label>
+  1075→            <div className="flex flex-wrap gap-2 mt-2">
+  1076→              {times.map(t => (
+  1077→                <Badge key={t} variant="secondary" className="px-3 py-1.5 text-sm gap-1.5">
+  1078→                  <Clock className="w-3.5 h-3.5" /> {t}
+  1079→                  <button onClick={() => removeTime(t)} className="ml-0.5 hover:text-destructive transition-colors">
+  1080→                    <X className="w-3 h-3" />
+  1081→                  </button>
+  1082→                </Badge>
+  1083→              ))}
+  1084→            </div>
+  1085→            {times.length < 5 && (
+  1086→              <div className="flex gap-2 mt-3">
+  1087→                <div className="relative flex-1">
+  1088→                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+  1089→                  <Input
+  1090→                    type="time"
+  1091→                    value={newTime}
+  1092→                    onChange={(e) => setNewTime(e.target.value)}
+  1093→                    className="pl-10"
+  1094→                  />
+  1095→                </div>
+  1096→                <Button variant="outline" onClick={addTime} disabled={!newTime}>
+  1097→                  <Plus className="w-4 h-4" />
+  1098→                </Button>
+  1099→              </div>
+  1100→            )}
+  1101→          </div>
+  1102→        </div>
+  1103→
+  1104→        <DialogFooter>
+  1105→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+  1106→          <Button
+  1107→            onClick={handleCreate}
+  1108→            disabled={loading || !contactId || selectedStyles.length === 0}
+  1109→            className="bg-burgundy hover:bg-burgundy-dark text-white"
+  1110→          >
+  1111→            {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando...</> : <><CalendarDays className="w-4 h-4 mr-2" /> Criar Agendamento</>}
+  1112→          </Button>
+  1113→        </DialogFooter>
+  1114→      </DialogContent>
+  1115→    </Dialog>
+  1116→  );
+  1117→}
+  1118→
+  1119→/* Schedule Tab */
+  1120→function ScheduleTab({ contacts, schedules, userId, userName, isDev, onUpdate }: {
+  1121→  contacts: Contact[]; schedules: Schedule[]; userId: string; userName: string; isDev: boolean; onUpdate: () => void;
+  1122→}) {
+  1123→  const [showAddContact, setShowAddContact] = useState(false);
+  1124→  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
+  1125→  const [newContactName, setNewContactName] = useState('');
+  1126→  const [newContactPhone, setNewContactPhone] = useState('');
+  1127→  const [scheduleContact, setScheduleContact] = useState<Contact | null>(null);
+  1128→  const [genLoading, setGenLoading] = useState(false);
+  1129→  const [previewMsg, setPreviewMsg] = useState('');
+  1130→  const [selectedStyle, setSelectedStyle] = useState<MessageStyle>('romantic');
+  1131→
+  1132→  const addContact = async () => {
+  1133→    if (!newContactName || !newContactPhone) { toast.error('Preencha nome e telefone'); return; }
+  1134→    try {
+  1135→      const res = await fetch('/api/contacts', {
+  1136→        method: 'POST',
+  1137→        headers: { 'Content-Type': 'application/json' },
+  1138→        body: JSON.stringify({ userId, name: newContactName, phone: parsePhoneToDigits(newContactPhone) }),
+  1139→      });
+  1140→      const data = await res.json();
+  1141→      if (data.error) throw new Error(data.error);
+  1142→      toast.success('Contato adicionado! 💕');
+  1143→      setNewContactName('');
+  1144→      setNewContactPhone('');
+  1145→      setShowAddContact(false);
+  1146→      onUpdate();
+  1147→    } catch (err) {
+  1148→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1149→    }
+  1150→  };
+  1151→
+  1152→  const deleteContact = async (id: string) => {
+  1153→    try {
+  1154→      const res = await fetch('/api/contacts', {
+  1155→        method: 'DELETE',
+  1156→        headers: { 'Content-Type': 'application/json' },
+  1157→        body: JSON.stringify({ id, userId }),
+  1158→      });
+  1159→      const data = await res.json();
+  1160→      if (data.error) throw new Error(data.error);
+  1161→      toast.success('Contato removido');
+  1162→      onUpdate();
+  1163→    } catch (err) {
+  1164→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1165→    }
+  1166→  };
+  1167→
+  1168→  const handleGenerate = async (contact: Contact, style: MessageStyle) => {
+  1169→    setGenLoading(true);
+  1170→    setSelectedStyle(style);
+  1171→    try {
+  1172→      const res = await fetch('/api/messages/generate', {
+  1173→        method: 'POST',
+  1174→        headers: { 'Content-Type': 'application/json' },
+  1175→        body: JSON.stringify({ contactName: contact.name, senderName: userName, style, userId, contactId: contact.id }),
+  1176→      });
+  1177→      const data = await res.json();
+  1178→      if (data.error) throw new Error(data.error);
+  1179→      setPreviewMsg(data.message);
+  1180→      toast.success('Mensagem gerada! ✨');
+  1181→    } catch (err) {
+  1182→      toast.error(err instanceof Error ? err.message : 'Erro ao gerar');
+  1183→    } finally {
+  1184→      setGenLoading(false);
+  1185→    }
+  1186→  };
+  1187→
+  1188→  const handleSend = async (contact: Contact, message: string) => {
+  1189→    try {
+  1190→      const res = await fetch('/api/messages/send', {
+  1191→        method: 'POST',
+  1192→        headers: { 'Content-Type': 'application/json' },
+  1193→        body: JSON.stringify({
+  1194→          contactName: contact.name, phoneNumber: contact.phone,
+  1195→          message, style: selectedStyle, userId, contactId: contact.id,
+  1196→        }),
+  1197→      });
+  1198→      const data = await res.json();
+  1199→      if (data.error) throw new Error(data.error);
+  1200→      toast.success(data.message);
+  1201→      setPreviewMsg('');
+  1202→      setScheduleContact(null);
+  1203→      onUpdate();
+  1204→    } catch (err) {
+  1205→      toast.error(err instanceof Error ? err.message : 'Erro ao enviar');
+  1206→    }
+  1207→  };
+  1208→
+  1209→  const toggleSchedule = async (schedule: Schedule) => {
+  1210→    try {
+  1211→      const res = await fetch('/api/schedules', {
+  1212→        method: 'PUT',
+  1213→        headers: { 'Content-Type': 'application/json' },
+  1214→        body: JSON.stringify({ id: schedule.id, userId, active: !schedule.active }),
+  1215→      });
+  1216→      const data = await res.json();
+  1217→      if (data.error) throw new Error(data.error);
+  1218→      onUpdate();
+  1219→    } catch (err) {
+  1220→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1221→    }
+  1222→  };
+  1223→
+  1224→  const deleteSchedule = async (id: string) => {
+  1225→    try {
+  1226→      const res = await fetch('/api/schedules', {
+  1227→        method: 'DELETE',
+  1228→        headers: { 'Content-Type': 'application/json' },
+  1229→        body: JSON.stringify({ id, userId }),
+  1230→      });
+  1231→      const data = await res.json();
+  1232→      if (data.error) throw new Error(data.error);
+  1233→      toast.success('Agendamento removido');
+  1234→      onUpdate();
+  1235→    } catch (err) {
+  1236→      toast.error(err instanceof Error ? err.message : 'Erro');
+  1237→    }
+  1238→  };
+  1239→
+  1240→  return (
+  1241→    <div className="space-y-6">
+  1242→      <div className="flex items-center justify-between">
+  1243→        <div>
+  1244→          <h2 className="text-xl font-bold text-graphite">Seus Contatos</h2>
+  1245→          <p className="text-sm text-graphite-muted">{contacts.length} contato(s) cadastrado(s)</p>
+  1246→        </div>
+  1247→        <div className="flex gap-2">
+  1248→          {contacts.length > 0 && (
+  1249→            <Button onClick={() => setShowCreateSchedule(true)} variant="outline" className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+  1250→              <CalendarDays className="w-4 h-4 mr-2" /> Agendar
+  1251→            </Button>
+  1252→          )}
+  1253→          <Button onClick={() => setShowAddContact(true)} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1254→            <Plus className="w-4 h-4 mr-2" /> Novo Contato
+  1255→          </Button>
+  1256→        </div>
+  1257→      </div>
+  1258→
+  1259→      {/* Add Contact Dialog */}
+  1260→      <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
+  1261→        <DialogContent>
+  1262→          <DialogHeader>
+  1263→            <DialogTitle>Novo Contato</DialogTitle>
+  1264→            <DialogDescription>Adicione a pessoa que vai receber mensagens românticas</DialogDescription>
+  1265→          </DialogHeader>
+  1266→          <div className="space-y-4 py-2">
+  1267→            <div>
+  1268→              <Label>Nome do Contato</Label>
+  1269→              <Input placeholder="Nome do seu amor" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="mt-1.5" />
+  1270→            </div>
+  1271→            <div>
+  1272→              <Label>WhatsApp</Label>
+  1273→              <div className="relative mt-1.5">
+  1274→                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-muted" />
+  1275→                <Input placeholder="(11) 99999-9999" value={newContactPhone} onChange={(e) => setNewContactPhone(formatPhone(e.target.value))} className="pl-10" />
+  1276→              </div>
+  1277→            </div>
+  1278→          </div>
+  1279→          <DialogFooter>
+  1280→            <Button variant="outline" onClick={() => setShowAddContact(false)}>Cancelar</Button>
+  1281→            <Button onClick={addContact} className="bg-burgundy hover:bg-burgundy-dark text-white">Adicionar</Button>
+  1282→          </DialogFooter>
+  1283→        </DialogContent>
+  1284→      </Dialog>
+  1285→
+  1286→      {/* Create Schedule Dialog */}
+  1287→      <CreateScheduleDialog
+  1288→        contacts={contacts}
+  1289→        userId={userId}
+  1290→        open={showCreateSchedule}
+  1291→        onOpenChange={setShowCreateSchedule}
+  1292→        onSuccess={onUpdate}
+  1293→      />
+  1294→
+  1295→      {/* Contacts List */}
+  1296→      {contacts.length === 0 ? (
+  1297→        <Card className="border-dashed border-2 border-burgundy/20">
+  1298→          <CardContent className="py-12 text-center">
+  1299→            <Heart className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+  1300→            <p className="text-graphite-muted font-medium">Nenhum contato ainda</p>
+  1301→            <p className="text-sm text-graphite-muted/70">Adicione seu amor para começar a enviar mensagens</p>
+  1302→          </CardContent>
+  1303→        </Card>
+  1304→      ) : (
+  1305→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1306→          {contacts.map((contact) => (
+  1307→            <Card key={contact.id} className="border-burgundy/10 hover:shadow-md transition-shadow">
+  1308→              <CardContent className="p-4">
+  1309→                <div className="flex items-start justify-between mb-3">
+  1310→                  <div className="flex items-center gap-3">
+  1311→                    <div className="w-10 h-10 rounded-full bg-burgundy/10 flex items-center justify-center">
+  1312→                      <UserIcon className="w-5 h-5 text-burgundy" />
+  1313→                    </div>
+  1314→                    <div>
+  1315→                      <p className="font-semibold text-graphite">{contact.name}</p>
+  1316→                      <p className="text-sm text-graphite-muted">{contact.phone}</p>
+  1317→                    </div>
+  1318→                  </div>
+  1319→                  <Button variant="ghost" size="sm" onClick={() => deleteContact(contact.id)} className="text-graphite-muted hover:text-destructive">
+  1320→                    <Trash2 className="w-4 h-4" />
+  1321→                  </Button>
+  1322→                </div>
+  1323→                <p className="text-xs text-graphite-muted mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Gerar mensagem rápida:</p>
+  1324→                <div className="flex gap-2">
+  1325→                  {MESSAGE_STYLES.map((s) => (
+  1326→                    <Button
+  1327→                      key={s.value}
+  1328→                      size="sm"
+  1329→                      variant="outline"
+  1330→                      className="text-xs flex-1 hover:bg-burgundy-50 hover:border-burgundy/30 hover:text-burgundy"
+  1331→                      disabled={genLoading}
+  1332→                      onClick={() => { setScheduleContact(contact); handleGenerate(contact, s.value); }}
+  1333→                    >
+  1334→                      {s.emoji} {s.label}
+  1335→                    </Button>
+  1336→                  ))}
+  1337→                </div>
+  1338→                {scheduleContact?.id === contact.id && previewMsg && (
+  1339→                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-3">
+  1340→                    <div className="bg-rose-pastel-light rounded-lg p-3 border border-burgundy/10 mb-2">
+  1341→                      <div className="flex items-center gap-1.5 mb-1.5">
+  1342→                        <Badge variant="secondary" className="text-xs">
+  1343→                          {styleEmojis[selectedStyle]} {styleLabels[selectedStyle]}
+  1344→                        </Badge>
+  1345→                      </div>
+  1346→                      <p className="text-sm text-graphite whitespace-pre-wrap">{previewMsg}</p>
+  1347→                    </div>
+  1348→                    <div className="flex gap-2">
+  1349→                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setGenLoading(true); handleGenerate(contact, selectedStyle).finally(() => setGenLoading(false)); }}>
+  1350→                        <RefreshCw className={`w-4 h-4 mr-1.5 ${genLoading ? 'animate-spin' : ''}`} /> Regenerar
+  1351→                      </Button>
+  1352→                      <Button size="sm" className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white" onClick={() => handleSend(contact, previewMsg)}>
+  1353→                        <Send className="w-4 h-4 mr-1.5" /> Enviar
+  1354→                      </Button>
+  1355→                    </div>
+  1356→                  </motion.div>
+  1357→                )}
+  1358→              </CardContent>
+  1359→            </Card>
+  1360→          ))}
+  1361→        </div>
+  1362→      )}
+  1363→
+  1364→      {/* Active Schedules */}
+  1365→      {schedules.length > 0 && (
+  1366→        <div className="mt-8">
+  1367→          <h3 className="text-lg font-bold text-graphite mb-4">Agendamentos Ativos</h3>
+  1368→          <div className="space-y-3">
+  1369→            {schedules.map((s) => (
+  1370→              <Card key={s.id} className={`border-burgundy/10 ${!s.active ? 'opacity-50' : ''}`}>
+  1371→                <CardContent className="p-4">
+  1372→                  <div className="flex items-center justify-between">
+  1373→                    <div className="flex-1 min-w-0">
+  1374→                      <div className="flex items-center gap-2 mb-1">
+  1375→                        <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+  1376→                          <UserIcon className="w-4 h-4 text-burgundy" />
+  1377→                        </div>
+  1378→                        <p className="font-semibold text-graphite truncate">{s.contactName}</p>
+  1379→                        <div className="flex gap-1 flex-wrap">
+  1380→                          {s.messageStyles.map((st: string) => (
+  1381→                            <Badge key={st} variant="secondary" className="text-xs px-1.5 py-0">
+  1382→                              {styleEmojis[st as MessageStyle] || '💬'} {styleLabels[st as MessageStyle] || st}
+  1383→                            </Badge>
+  1384→                          ))}
+  1385→                        </div>
+  1386→                      </div>
+  1387→                      <p className="text-sm text-graphite-muted ml-10">
+  1388→                        <Clock className="w-3.5 h-3.5 inline mr-1" />
+  1389→                        {s.timesPerDay}x ao dia · {s.sendTimes.join(', ')}
+  1390→                      </p>
+  1391→                    </div>
+  1392→                    <div className="flex items-center gap-2 ml-3">
+  1393→                      <Switch checked={s.active} onCheckedChange={() => toggleSchedule(s)} />
+  1394→                      <Button variant="ghost" size="sm" onClick={() => deleteSchedule(s.id)} className="text-graphite-muted hover:text-destructive">
+  1395→                        <Trash2 className="w-4 h-4" />
+  1396→                      </Button>
+  1397→                    </div>
+  1398→                  </div>
+  1399→                </CardContent>
+  1400→              </Card>
+  1401→            ))}
+  1402→          </div>
+  1403→        </div>
+  1404→      )}
+  1405→    </div>
+  1406→  );
+  1407→}
+  1408→
+  1409→/* History Tab */
+  1410→function HistoryTab({ history }: { history: MessageHistory[] }) {
+  1411→  const [expanded, setExpanded] = useState<string | null>(null);
+  1412→
+  1413→  if (history.length === 0) {
+  1414→    return (
+  1415→      <Card className="border-dashed border-2 border-burgundy/20">
+  1416→        <CardContent className="py-12 text-center">
+  1417→          <Clock className="w-12 h-12 text-burgundy/30 mx-auto mb-3" />
+  1418→          <p className="text-graphite-muted font-medium">Nenhum envio ainda</p>
+  1419→          <p className="text-sm text-graphite-muted/70">As mensagens enviadas aparecerão aqui</p>
+  1420→        </CardContent>
+  1421→      </Card>
+  1422→    );
+  1423→  }
+  1424→
+  1425→  const statusConfig: Record<string, { label: string; className: string }> = {
+  1426→    sent: { label: 'Enviado', className: 'bg-green-100 text-green-700 border-green-200' },
+  1427→    delivered: { label: 'Entregue', className: 'bg-teal-100 text-teal-700 border-teal-200' },
+  1428→    pending: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  1429→    failed: { label: 'Falhou', className: 'bg-red-100 text-red-700 border-red-200' },
+  1430→  };
+  1431→
+  1432→  return (
+  1433→    <ScrollArea className="max-h-[70vh]">
+  1434→      <div className="space-y-3">
+  1435→        {history.map((msg) => {
+  1436→          const st = statusConfig[msg.status] || statusConfig.pending;
+  1437→          return (
+  1438→            <Card key={msg.id} className="border-burgundy/10 hover:shadow-sm transition-shadow">
+  1439→              <CardContent className="p-4">
+  1440→                <div className="flex items-start justify-between mb-2">
+  1441→                  <div className="flex items-center gap-2 min-w-0">
+  1442→                    <div className="w-8 h-8 rounded-full bg-burgundy/10 flex items-center justify-center shrink-0">
+  1443→                      <UserIcon className="w-4 h-4 text-burgundy" />
+  1444→                    </div>
+  1445→                    <div className="min-w-0">
+  1446→                      <p className="font-medium text-graphite truncate">{msg.contactName}</p>
+  1447→                      <p className="text-xs text-graphite-muted">{new Date(msg.sentAt).toLocaleString('pt-BR')}</p>
+  1448→                    </div>
+  1449→                  </div>
+  1450→                  <div className="flex items-center gap-2 shrink-0">
+  1451→                    <Badge className={`text-xs ${st.className}`}>{st.label}</Badge>
+  1452→                    <Badge variant="secondary" className="text-xs">
+  1453→                      {styleEmojis[msg.style as MessageStyle] || '💬'} {styleLabels[msg.style as MessageStyle] || msg.style}
+  1454→                    </Badge>
+  1455→                  </div>
+  1456→                </div>
+  1457→                <p
+  1458→                  className={`text-sm text-graphite-muted leading-relaxed cursor-pointer ${expanded === msg.id ? '' : 'line-clamp-2'}`}
+  1459→                  onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
+  1460→                >
+  1461→                  {msg.message}
+  1462→                </p>
+  1463→                {expanded === msg.id && (
+  1464→                  <Button variant="link" size="sm" onClick={() => setExpanded(null)} className="text-burgundy p-0 h-auto mt-1">
+  1465→                    Mostrar menos
+  1466→                  </Button>
+  1467→                )}
+  1468→              </CardContent>
+  1469→            </Card>
+  1470→          );
+  1471→        })}
+  1472→      </div>
+  1473→    </ScrollArea>
+  1474→  );
+  1475→}
+  1476→
+  1477→/* Settings Tab */
+  1478→function SettingsTab({ userId }: { userId: string }) {
+  1479→  const { user, config, setConfig } = useAppStore();
+  1480→  const [testing, setTesting] = useState(false);
+  1481→  const [connectionStatus, setConnectionStatus] = useState<{
+  1482→    configured: boolean;
+  1483→    connected?: boolean;
+  1484→    phone?: string;
+  1485→    battery?: number;
+  1486→    pushName?: string;
+  1487→    error?: string;
+  1488→  } | null>(null);
+  1489→  const [showEditConfig, setShowEditConfig] = useState(false);
+  1490→  const [supabaseUrl, setSupabaseUrl] = useState(config?.supabaseUrl || '');
+  1491→  const [supabaseKey, setSupabaseKey] = useState(config?.supabaseKey || '');
+  1492→  const [vercelToken, setVercelToken] = useState(config?.vercelToken || '');
+  1493→  const [vercelProjectId, setVercelProjectId] = useState(config?.vercelProjectId || '');
+  1494→  const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || '');
+  1495→  const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
+  1496→  const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
+  1497→  const [saving, setSaving] = useState(false);
+  1498→
+  1499→  const testConnection = async () => {
+  1500→    setTesting(true);
+  1501→    setConnectionStatus(null);
+  1502→    try {
+  1503→      const res = await fetch(`/api/whatsapp/status?userId=${userId}`);
+  1504→      const data = await res.json();
+  1505→      setConnectionStatus(data);
+  1506→      if (data.connected) {
+  1507→        toast.success(`WhatsApp conectado! Número: ${data.phone} 📱✅`);
+  1508→      } else if (data.configured === false) {
+  1509→        toast.error('Z-API não configurada. Preencha as credenciais primeiro.');
+  1510→      } else {
+  1511→        toast.error(`Conexão falhou: ${data.error || 'Verifique as credenciais'}`);
+  1512→      }
+  1513→    } catch {
+  1514→      toast.error('Erro ao testar conexão com Z-API');
+  1515→    } finally {
+  1516→      setTesting(false);
+  1517→    }
+  1518→  };
+  1519→
+  1520→  const handleSaveConfig = async () => {
+  1521→    if (!user) return;
+  1522→    setSaving(true);
+  1523→    try {
+  1524→      const res = await fetch('/api/onboarding', {
+  1525→        method: 'POST',
+  1526→        headers: { 'Content-Type': 'application/json' },
+  1527→        body: JSON.stringify({
+  1528→          userId: user.id, supabaseUrl, supabaseKey,
+  1529→          vercelToken, vercelProjectId,
+  1530→          whatsappApiUrl, whatsappApiToken, whatsappInstanceName,
+  1531→        }),
+  1532→      });
+  1533→      const data = await res.json();
+  1534→      if (data.error) throw new Error(data.error);
+  1535→      setConfig({ supabaseUrl, supabaseKey, vercelToken, vercelProjectId, whatsappApiUrl, whatsappApiToken, whatsappInstanceName, setupCompleted: true });
+  1536→      toast.success('Configurações atualizadas! 🎉');
+  1537→      setShowEditConfig(false);
+  1538→    } catch (err) {
+  1539→      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+  1540→    } finally {
+  1541→      setSaving(false);
+  1542→    }
+  1543→  };
+  1544→
+  1545→  const fields = [
+  1546→    { label: 'Supabase URL', value: config?.supabaseUrl, icon: Shield, desc: 'Banco de dados' },
+  1547→    { label: 'Supabase Anon Key', value: config?.supabaseKey, icon: Shield, desc: 'Chave de acesso' },
+  1548→    { label: 'Vercel Token', value: config?.vercelToken, icon: Zap, desc: 'Deploy' },
+  1549→    { label: 'Vercel Project ID', value: config?.vercelProjectId, icon: Zap, desc: 'ID do projeto' },
+  1550→    { label: 'WhatsApp API URL', value: config?.whatsappApiUrl, icon: MessageCircle, desc: 'Gateway de mensagens' },
+  1551→    { label: 'WhatsApp Instance', value: config?.whatsappInstanceName, icon: Phone, desc: 'Instância conectada' },
+  1552→  ];
+  1553→
+  1554→  const activeCount = fields.filter(f => f.value).length;
+  1555→
+  1556→  return (
+  1557→    <div className="space-y-6">
+  1558→      {/* Stats Cards */}
+  1559→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  1560→        <Card className="border-burgundy/10">
+  1561→          <CardContent className="p-4 text-center">
+  1562→            <p className="text-2xl font-bold text-burgundy">{activeCount}/6</p>
+  1563→            <p className="text-xs text-graphite-muted mt-1">Integrações Ativas</p>
+  1564→          </CardContent>
+  1565→        </Card>
+  1566→        <Card className="border-burgundy/10">
+  1567→          <CardContent className="p-4 text-center">
+  1568→            <p className="text-2xl font-bold text-graphite">{user?.credits ?? 0}</p>
+  1569→            <p className="text-xs text-graphite-muted mt-1">Créditos {user?.isDev ? '(∞)' : ''}</p>
+  1570→          </CardContent>
+  1571→        </Card>
+  1572→        <Card className="border-burgundy/10">
+  1573→          <CardContent className="p-4 text-center">
+  1574→            <p className="text-2xl font-bold text-graphite">{config?.setupCompleted ? '✅' : '⏳'}</p>
+  1575→            <p className="text-xs text-graphite-muted mt-1">Setup</p>
+  1576→          </CardContent>
+  1577→        </Card>
+  1578→        <Card className="border-burgundy/10">
+  1579→          <CardContent className="p-4 text-center">
+  1580→            <p className="text-2xl font-bold text-graphite">{user?.isDev ? '👑' : '👤'}</p>
+  1581→            <p className="text-xs text-graphite-muted mt-1">{user?.isDev ? 'Admin' : 'Usuário'}</p>
+  1582→          </CardContent>
+  1583→        </Card>
+  1584→      </div>
+  1585→
+  1586→      <Card className="border-burgundy/10">
+  1587→        <CardHeader className="flex flex-row items-center justify-between">
+  1588→          <div>
+  1589→            <CardTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-burgundy" /> Configurações de Integração</CardTitle>
+  1590→            <CardDescription>Conexões com Supabase, Vercel e WhatsApp API</CardDescription>
+  1591→          </div>
+  1592→          <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
+  1593→            <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
+  1594→          </Button>
+  1595→        </CardHeader>
+  1596→        <CardContent className="space-y-3">
+  1597→          {fields.map((f) => (
+  1598→            <div key={f.label} className="flex items-center justify-between py-2.5 border-b border-burgundy/5 last:border-0">
+  1599→              <div className="flex items-center gap-3">
+  1600→                <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center shrink-0">
+  1601→                  <f.icon className="w-4 h-4 text-burgundy" />
+  1602→                </div>
+  1603→                <div className="min-w-0">
+  1604→                  <p className="text-sm font-medium text-graphite">{f.label}</p>
+  1605→                  <p className="text-xs text-graphite-muted truncate max-w-[250px]">{f.value || 'Não configurado'}</p>
+  1606→                </div>
+  1607→              </div>
+  1608→              <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-green-100 text-green-700 border-green-200' : ''}>
+  1609→                {f.value ? 'Ativo' : 'Pendente'}
+  1610→              </Badge>
+  1611→            </div>
+  1612→          ))}
+  1613→        </CardContent>
+  1614→      </Card>
+  1615→
+  1616→      <Card className="border-burgundy/10">
+  1617→        <CardHeader>
+  1618→          <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Status Z-API (WhatsApp)</CardTitle>
+  1619→          <CardDescription>Verifique se a integração com Z-API está conectada</CardDescription>
+  1620→        </CardHeader>
+  1621→        <CardContent className="space-y-4">
+  1622→          <Button onClick={testConnection} disabled={testing} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1623→            {testing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-2" /> Testar Conexão Z-API</>}
+  1624→          </Button>
+  1625→
+  1626→          {connectionStatus && (
+  1627→            <motion.div
+  1628→              initial={{ opacity: 0, y: 10 }}
+  1629→              animate={{ opacity: 1, y: 0 }}
+  1630→              className={`p-4 rounded-lg border ${
+  1631→                connectionStatus.connected
+  1632→                  ? 'bg-green-50 border-green-200'
+  1633→                  : connectionStatus.configured === false
+  1634→                    ? 'bg-amber-50 border-amber-200'
+  1635→                    : 'bg-red-50 border-red-200'
+  1636→              }`}
+  1637→            >
+  1638→              <div className="flex items-center gap-2 mb-2">
+  1639→                <div className={`w-3 h-3 rounded-full ${connectionStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+  1640→                <span className="font-semibold text-sm">
+  1641→                  {connectionStatus.connected ? 'Conectado' : connectionStatus.configured === false ? 'Não Configurado' : 'Desconectado'}
+  1642→                </span>
+  1643→              </div>
+  1644→              {connectionStatus.connected && (
+  1645→                <div className="text-sm text-graphite-muted space-y-1">
+  1646→                  <p>📱 Número: <strong>{connectionStatus.phone}</strong></p>
+  1647→                  {connectionStatus.pushName && <p>👤 Push Name: <strong>{connectionStatus.pushName}</strong></p>}
+  1648→                  {connectionStatus.battery !== undefined && <p>🔋 Bateria: <strong>{connectionStatus.battery}%</strong></p>}
+  1649→                </div>
+  1650→              )}
+  1651→              {!connectionStatus.connected && connectionStatus.error && (
+  1652→                <p className="text-sm text-red-600">{connectionStatus.error}</p>
+  1653→              )}
+  1654→            </motion.div>
+  1655→          )}
+  1656→        </CardContent>
+  1657→      </Card>
+  1658→
+  1659→      {/* Edit Config Dialog */}
+  1660→      <Dialog open={showEditConfig} onOpenChange={setShowEditConfig}>
+  1661→        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+  1662→          <DialogHeader>
+  1663→            <DialogTitle>Editar Configurações de Integração</DialogTitle>
+  1664→            <DialogDescription>Atualize suas credenciais de API</DialogDescription>
+  1665→          </DialogHeader>
+  1666→          <div className="space-y-4 py-3">
+  1667→            <div className="bg-rose-pastel-light rounded-lg p-3 text-sm">
+  1668→              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><Info className="w-4 h-4 text-burgundy" /> Supabase</p>
+  1669→              <div className="space-y-3 mt-2">
+  1670→                <div><Label className="text-xs">Supabase URL</Label><Input placeholder="https://xxxxx.supabase.co" value={supabaseUrl} onChange={(e) => setSupabaseUrl(e.target.value)} className="mt-1" /></div>
+  1671→                <div><Label className="text-xs">Supabase Anon Key</Label><Input placeholder="eyJhbGciOiJIUzI1NiIs..." value={supabaseKey} onChange={(e) => setSupabaseKey(e.target.value)} className="mt-1" /></div>
+  1672→              </div>
+  1673→            </div>
+  1674→            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+  1675→              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><Zap className="w-4 h-4 text-gray-600" /> Vercel</p>
+  1676→              <div className="space-y-3 mt-2">
+  1677→                <div><Label className="text-xs">Vercel Auth Token</Label><Input placeholder="vercel_xxxxx" value={vercelToken} onChange={(e) => setVercelToken(e.target.value)} className="mt-1" /></div>
+  1678→                <div><Label className="text-xs">Vercel Project ID</Label><Input placeholder="prj_xxxxx" value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} className="mt-1" /></div>
+  1679→              </div>
+  1680→            </div>
+  1681→            <div className="bg-green-50 rounded-lg p-3 text-sm">
+  1682→              <p className="font-medium text-graphite flex items-center gap-1.5 mb-1"><MessageCircle className="w-4 h-4 text-green-600" /> WhatsApp API</p>
+  1683→              <div className="space-y-3 mt-2">
+  1684→                <div><Label className="text-xs">API URL</Label><Input placeholder="https://api.evolution-api.com" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1" /></div>
+  1685→                <div><Label className="text-xs">API Token</Label><Input placeholder="xxxxxxxx" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" /></div>
+  1686→                <div><Label className="text-xs">Instance Name</Label><Input placeholder="minha-instancia" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1" /></div>
+  1687→              </div>
+  1688→            </div>
+  1689→          </div>
+  1690→          <DialogFooter>
+  1691→            <Button variant="outline" onClick={() => setShowEditConfig(false)}>Cancelar</Button>
+  1692→            <Button onClick={handleSaveConfig} disabled={saving} className="bg-burgundy hover:bg-burgundy-dark text-white">
+  1693→              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar</>}
+  1694→            </Button>
+  1695→          </DialogFooter>
+  1696→        </DialogContent>
+  1697→      </Dialog>
+  1698→    </div>
+  1699→  );
+  1700→}
+  1701→
+  1702→/* ─────────────────── MAIN PAGE ─────────────────── */
+  1703→export default function HomePage() {
+  1704→  const { currentView } = useAppStore();
+  1705→  const [mounted, setMounted] = useState(false);
+  1706→
+  1707→  useEffect(() => {
+  1708→    const id = requestAnimationFrame(() => setMounted(true));
+  1709→    return () => cancelAnimationFrame(id);
+  1710→  }, []);
+  1711→
+  1712→  if (!mounted) {
+  1713→    return (
+  1714→      <div className="min-h-screen flex items-center justify-center bg-background">
+  1715→        <div className="flex flex-col items-center gap-4">
+  1716→          <Heart className="w-10 h-10 text-burgundy animate-pulse-heart" fill="#722F37" />
+  1717→          <p className="text-graphite-muted text-sm">Carregando WhatsRomance...</p>
+  1718→        </div>
+  1719→      </div>
+  1720→    );
+  1721→  }
+  1722→
+  1723→  return (
+  1724→    <AnimatePresence mode="wait">
+  1725→      {currentView === 'landing' && (
+  1726→        <motion.div key="landing" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1727→          <LandingPage />
+  1728→        </motion.div>
+  1729→      )}
+  1730→      {currentView === 'auth' && (
+  1731→        <motion.div key="auth" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1732→          <AuthPage />
+  1733→        </motion.div>
+  1734→      )}
+  1735→      {currentView === 'onboarding' && (
+  1736→        <motion.div key="onboarding" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1737→          <OnboardingPage />
+  1738→        </motion.div>
+  1739→      )}
+  1740→      {currentView === 'dashboard' && (
+  1741→        <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+  1742→          <Dashboard />
+  1743→        </motion.div>
+  1744→      )}
+  1745→    </AnimatePresence>
+  1746→  );
+  1747→}
