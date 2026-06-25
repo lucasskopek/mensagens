@@ -86,3 +86,34 @@ Stage Summary:
 - All three services running: Next.js (3000), WhatsApp Baileys (3004), Scheduler
 - Full UI flow verified end-to-end via agent-browser
 - Z-API completely removed, replaced with free open-source Baileys integration
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix WhatsApp 405 error and prepare for Vercel + GitHub deployment
+
+Work Log:
+- Analyzed the 405 error: WhatsApp blocks connections from cloud/sandbox IPs — this is expected, not a code bug
+- Made WA_SERVICE_URL configurable via environment variable (was hardcoded to localhost:3004)
+- Added isWaServiceConfigured() that returns false in production without WA_SERVICE_URL, true in dev
+- Updated all 3 WhatsApp API routes (status, qr-code, logout) to handle service unavailability gracefully
+- Updated OnboardingPage UI: stops polling when service unavailable, shows clear message
+- Updated SettingsTab UI: shows "Serviço não configurado" with WA_SERVICE_URL instructions on Vercel
+- Added @prisma/adapter-libsql + @libsql/client for Turso cloud database support on Vercel
+- Updated db.ts with conditional Turso adapter (when TURSO_DATABASE_URL is set)
+- Updated .gitignore: exclude db/, mini-services/, upload/, tool-results/, bun.lock
+- Created .env.example with all required environment variables documented
+- Cleaned next.config.ts (removed allowedDevOrigins, kept standalone output)
+- Fixed eslint config to allow require() imports for db adapter
+- Created deploy.sh script for automated GitHub push + Vercel deploy
+- Created .vercel/project.json with the user's project ID
+- Committed all changes locally (git commit ready to push)
+- Verified via agent-browser: login, dashboard, Settings tab show correct 405 error message
+- Attempted Vercel API and GitHub push — no valid API tokens available
+
+Stage Summary:
+- Code is fully prepared for Vercel deployment
+- The 405 error is an expected sandbox limitation, properly handled in UI
+- Git commit ready: all Vercel-compatible changes staged
+- Deploy script (deploy.sh) created for one-command deployment
+- NEEDS: GitHub PAT and Vercel API Token from user to complete deployment
