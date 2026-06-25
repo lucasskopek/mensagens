@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com/evolution-foundation/evolution-api",
+    "name": "Evolution API is an open-source WhatsApp integration API - GitHub",
+    "snippet": "Evolution API is a powerful, production-ready REST API for WhatsApp and multi-channel messaging. Originally focused on WhatsApp, it has grown into a ...",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/evolution-foundation/evolution-go",
+    "name": "Evolution API / Evolution Go is an open-source WhatsApp  - GitHub",
+    "snippet": "High-performance WhatsApp API built in Go — part of the Evolution Foundation ecosystem. Latest version License: Apache 2.0 Documentation Community Docker image.",
+    "host_name": "github.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://easypanel.io/docs/templates/evolutionapi",
+    "name": "Evolution API | Self-Host on Easypanel",
+    "snippet": "Evolution API is a self-hosted platform designed to empower small businesses, entrepreneurs, and individuals by providing a robust API for integrating messaging ...",
+    "host_name": "easypanel.io",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/coollabsio/coolify/discussions/4548",
+    "name": "EvolutionAPI - An open-source WhatsApp integration API #4548",
+    "snippet": "Evolution API is an open-source WhatsApp integration API. https://github.com/EvolutionAPI/evolution-api",
+    "host_name": "github.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://forum.cloudron.io/topic/12910/custom-app-evolutionapi-unofficial-whatsapp-api",
+    "name": "Custom APP - EvolutionAPI Unofficial WhatsAPP API",
+    "snippet": "I would like to know if anyone can help me, provide support, create a step-by-step tutorial, and set up a DockerCompose file for me.",
+    "host_name": "forum.cloudron.io",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  }
+]

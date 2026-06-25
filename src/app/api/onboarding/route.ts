@@ -30,17 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      userId,
-      supabaseUrl,
-      supabaseKey,
-      vercelToken,
-      vercelProjectId,
-      whatsappApiUrl,
-      whatsappApiToken,
-      whatsappInstanceName,
-      whatsappClientToken,
-    } = body;
+    const { userId } = body;
 
     if (!userId) {
       return NextResponse.json(
@@ -49,29 +39,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Mark setup as completed (WhatsApp connection is via QR code, no credentials needed)
     const config = await db.userConfig.upsert({
       where: { userId },
       update: {
-        supabaseUrl: supabaseUrl || null,
-        supabaseKey: supabaseKey || null,
-        vercelToken: vercelToken || null,
-        vercelProjectId: vercelProjectId || null,
-        whatsappApiUrl: whatsappApiUrl || null,
-        whatsappApiToken: whatsappApiToken || null,
-        whatsappInstanceName: whatsappInstanceName || null,
-        whatsappClientToken: whatsappClientToken || null,
         setupCompleted: true,
       },
       create: {
         userId,
-        supabaseUrl: supabaseUrl || null,
-        supabaseKey: supabaseKey || null,
-        vercelToken: vercelToken || null,
-        vercelProjectId: vercelProjectId || null,
-        whatsappApiUrl: whatsappApiUrl || null,
-        whatsappApiToken: whatsappApiToken || null,
-        whatsappInstanceName: whatsappInstanceName || null,
-        whatsappClientToken: whatsappClientToken || null,
         setupCompleted: true,
       },
     });

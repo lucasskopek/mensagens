@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com/whiskeysockets/Baileys",
+    "name": "WhiskeySockets/Baileys: Socket-based TS/JavaScript API",
+    "snippet": "Baileys is a WebSockets-based TypeScript library for interacting with the WhatsApp Web API. Join the WhiskeySockets community via the link: https://whiskey.so/ ...",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@elvisbrazil/automating-whatsapp-with-node-js-and-baileys-send-receive-and-broadcast-messages-with-code-0656c40bd928",
+    "name": "Automating WhatsApp with Node.js and Baileys: Send",
+    "snippet": "In this article, I'll walk you through using the powerful Baileys library to automate WhatsApp messaging with Node.js — including sending ...",
+    "host_name": "medium.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=DHEIO9YdRV8",
+    "name": "How To Make A Whatsapp Bot Using Baileys And Node Js",
+    "snippet": "Build a Whatsapp Web Chatbot to Send Messages Automatically in Node.js and Automate Whatsapp. Coding Shiksha•35K views · 7:32. Go to channel ...\nJOIN MY DISCORD SERVER: https://discord.gg/9v43X2tt89 Join the Super Programmers Community! Unlock exclusive access to our comprehensive ...",
+    "host_name": "www.youtube.com",
+    "rank": 2,
+    "date": "Jun 25, 2024",
+    "favicon": ""
+  },
+  {
+    "url": "https://baileys.wiki/docs/intro",
+    "name": "Baileys: Introduction",
+    "snippet": "Baileys is a WhatsApp Web API automation TypeScript library (Node supported, web/extension support planned). This project doesn't control WhatsApp using an ...",
+    "host_name": "baileys.wiki",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/WhatsappBusinessAPI/comments/1rpvzqn/whatsapp_libs_baileys_and_whatsappwebjs",
+    "name": "whatsApp libs, Baileys and whatsapp-web.js",
+    "snippet": "I have been using Baileys for over 3 months with an app bot that many users can scan and create a session for clients sending automation, so far ...",
+    "host_name": "www.reddit.com",
+    "rank": 4,
+    "date": "Mar 27, 2026",
+    "favicon": ""
+  }
+]

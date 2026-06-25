@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com/WhiskeySockets/Baileys/issues/587",
+    "name": "Request for Custom Message ID Generation Support when connecting",
+    "snippet": "I'm finding a method to modify the message ID when connecting using makeWASocket. like const conn = makeWASocket({ generateMessageID: ...",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.jsdelivr.com/package/npm/@whiskeysockets/baileys",
+    "name": "whiskeysockets/baileys - A CDN for npm and GitHub - jsDelivr",
+    "snippet": "A free, fast, and reliable CDN for @whiskeysockets/baileys. A WebSockets library for interacting with WhatsApp Web.",
+    "host_name": "www.jsdelivr.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://whiskeysockets-baileys-94.mintlify.app/quickstart",
+    "name": "Quick Start - Baileys - WhatsApp Web API",
+    "snippet": "import makeWASocket, { useMultiFileAuthState } from '@whiskeysockets/baileys ... // Send a text message await sock.sendMessage('1234567890@s.whatsapp.net ...",
+    "host_name": "whiskeysockets-baileys-94.mintlify.app",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://git.remala.id/root/public-package/-/tree/c2e2146958d5d8a59a9659c7d7000960baff5c26/node_modules/@whiskeysockets/baileys",
+    "name": "node_modules/@whiskeysockets/baileys - GitLab",
+    "snippet": "sendMessage(jid, { text: 'hello!' }) // send a message // sends a message to delete the given message // this deletes the message for everyone await sock.",
+    "host_name": "git.remala.id",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://context7.com/whiskeysockets/baileys",
+    "name": "Baileys (whiskeysockets/baileys) - Context7",
+    "snippet": "Baileys is a WebSockets-based TypeScript library for interacting with the WhatsApp Web API, supporting multi-device and web versions without ...",
+    "host_name": "context7.com",
+    "rank": 4,
+    "date": "Jun 20, 2026",
+    "favicon": ""
+  }
+]

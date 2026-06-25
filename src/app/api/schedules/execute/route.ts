@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sendTextMessage } from '@/lib/zapi';
+import { sendTextMessage } from '@/lib/whatsapp';
 import ZAI from 'z-ai-web-dev-sdk';
 
 const STYLE_INSTRUCTIONS: Record<string, string> = {
@@ -21,7 +21,6 @@ REGRAS:
 
 function getNowSaoPaulo(): { dateStr: string; timeStr: string } {
   const now = new Date();
-  // Use Intl to get America/Sao_Paulo timezone components
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',
@@ -45,7 +44,6 @@ async function generateMessage(
   userId: string,
   contactId: string,
 ): Promise<string> {
-  // Fetch recent messages for anti-duplication
   const recentHistory = await db.messageHistory.findMany({
     where: { userId, contactId, style },
     orderBy: { sentAt: 'desc' },
@@ -86,7 +84,6 @@ export async function GET() {
   console.log(`[Scheduler] Checking at ${dateStr} ${timeStr}`);
 
   try {
-    // Get all active schedules
     const schedules = await db.schedule.findMany({
       where: { active: true },
       include: { contact: true, user: true },
@@ -98,25 +95,20 @@ export async function GET() {
         const styles: string[] = JSON.parse(schedule.messageStyles);
         const executionLog: string[] = JSON.parse(schedule.executionLog);
 
-        // Check if current time matches any configured time
         if (!sendTimes.includes(timeStr)) continue;
 
-        // Check if this is a valid date for the schedule
         if (!schedule.recurring) {
           const selectedDates: string[] = JSON.parse(schedule.selectedDates);
           if (!selectedDates.includes(dateStr)) continue;
         }
 
-        // Check if already executed this slot
         const slot = `${dateStr}|${timeStr}`;
         if (executionLog.includes(slot)) continue;
 
         console.log(`[Scheduler] Executing schedule ${schedule.id} for ${schedule.contact.name} at ${slot}`);
 
-        // Pick a random style from the configured ones
         const style = styles[Math.floor(Math.random() * styles.length)];
 
-        // Generate AI message
         const message = await generateMessage(
           schedule.contact.name,
           schedule.user.name,
@@ -130,34 +122,18 @@ export async function GET() {
           continue;
         }
 
-        // Send via Z-API
+        // Send via Baileys WhatsApp service
         let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent';
         let statusDetail = '';
 
-        const config = await db.userConfig.findUnique({ where: { userId: schedule.userId } });
+        const waResult = await sendTextMessage(schedule.contact.phone, message);
 
-        if (config?.whatsappApiUrl && config?.whatsappApiToken && config?.whatsappInstanceName) {
-          const zapiResult = await sendTextMessage(
-            {
-              baseUrl: config.whatsappApiUrl,
-              apiToken: config.whatsappApiToken,
-              instanceId: config.whatsappInstanceName,
-              clientToken: config.whatsappClientToken || undefined,
-            },
-            schedule.contact.phone,
-            message,
-          );
-
-          if (zapiResult.success) {
-            deliveryStatus = 'delivered';
-            statusDetail = `Z-API messageId: ${zapiResult.messageId || 'N/A'}`;
-          } else {
-            deliveryStatus = 'failed';
-            statusDetail = zapiResult.error || 'Erro na Z-API';
-          }
+        if (waResult.success) {
+          deliveryStatus = 'delivered';
+          statusDetail = `WhatsApp messageId: ${waResult.messageId || 'N/A'}`;
         } else {
-          deliveryStatus = 'sent';
-          statusDetail = 'Modo demonstração (Z-API não configurada)';
+          deliveryStatus = 'failed';
+          statusDetail = waResult.error || 'Erro no serviço WhatsApp';
         }
 
         // Save to message history

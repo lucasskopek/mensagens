@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com/wppconnect-team/wppconnect",
+    "name": "WPPConnect is an open source project developed by the  - GitHub",
+    "snippet": "WPPConnect is an open source project developed by the JavaScript community with the aim of exporting functions from WhatsApp Web to the node.",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://wppconnect-team.github.io",
+    "name": "WPPConnect — open-source WhatsApp automation | WPPConnect",
+    "snippet": "The WPPConnect Team creates open-source tools for automating and integrating with WhatsApp Web, enabling efficient communication and bot development.",
+    "host_name": "wppconnect-team.github.io",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://wppconnect-team.github.io/docs/what-is-wppconnect",
+    "name": "What is WPPConnect Project?",
+    "snippet": "The WPPConnect Project is an open-source initiative aimed at providing a communication alternative for WhatsApp users. It offers an unofficial API to interact ...",
+    "host_name": "wppconnect-team.github.io",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.facebook.com/0xSojalSec/posts/unofficial-whatsapp-api-for-bots-automation-and-integrations-githubcomwppconnect/1354363746218025",
+    "name": "Unofficial WhatsApp API for bots, automation, and integrations",
+    "snippet": "Unofficial WhatsApp API for bots, automation, and integrations. - /github.com/wppconnect-team/wppconnect.",
+    "host_name": "www.facebook.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/brdev/comments/1mm6q4a/criei_um_projeto_opensource_para_facilitiar_a/?tl=en",
+    "name": "I created an open-source project to make it easier to integrate",
+    "snippet": "The project supports multiple sessions, some endpoints for sending messages, and registration of webhooks with message and status updates. The ...",
+    "host_name": "www.reddit.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://github.com/whiskeysockets/Baileys",
+    "name": "WhiskeySockets/Baileys: Socket-based TS/JavaScript API  - GitHub",
+    "snippet": "Baileys is a WebSockets-based TypeScript library for interacting with the WhatsApp Web API. Join the WhiskeySockets community via the link: https://whiskey.so/ ...",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://npmjs.com/package/@whiskeysockets/baileys",
+    "name": "whiskeysockets/baileys - NPM",
+    "snippet": "Baileys is a WebSockets-based TypeScript library for interacting with the WhatsApp Web API. [!CAUTION] NOTICE OF BREAKING CHANGE. As of 7.0.0, ...",
+    "host_name": "npmjs.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://medium.com/@elvisbrazil/automating-whatsapp-with-node-js-and-baileys-send-receive-and-broadcast-messages-with-code-0656c40bd928",
+    "name": "Automating WhatsApp with Node.js and Baileys: Send, Receive, and",
+    "snippet": "In this article, I'll walk you through using the powerful Baileys library to automate WhatsApp messaging with Node.js — including sending ...",
+    "host_name": "medium.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://baileys.wiki/docs/intro",
+    "name": "Baileys: Introduction",
+    "snippet": "This project doesn't control WhatsApp using an automated browser, but instead uses WhatsApp Web's WebSocket-based protocol to interact with WhatsApp servers.",
+    "host_name": "baileys.wiki",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://classic.yarnpkg.com/en/package/easy-baileys",
+    "name": "easy-baileys | Yarn",
+    "snippet": "easy-baileys is a Node.js package designed to streamline WhatsApp connectivity and automate message handling, offering robust flexibility.",
+    "host_name": "classic.yarnpkg.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  }
+]

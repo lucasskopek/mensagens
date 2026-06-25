@@ -507,37 +507,69 @@ function AuthPage() {
 function OnboardingPage() {
   const { user, setView, setConfig } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const [qrBase64, setQrBase64] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [connected, setConnected] = useState(false);
+  const [connectedPhone, setConnectedPhone] = useState('');
+  const [polling, setPolling] = useState<NodeJS.Timeout | null>(null);
 
-  // Z-API credentials
-  const [whatsappApiUrl, setWhatsappApiUrl] = useState('https://api.z-api.io');
-  const [whatsappApiToken, setWhatsappApiToken] = useState('');
-  const [whatsappInstanceName, setWhatsappInstanceName] = useState('');
-  const [whatsappClientToken, setWhatsappClientToken] = useState('');
-
-  const handleSave = async () => {
-    if (!user) return;
-    if (!whatsappApiToken || !whatsappInstanceName) {
-      toast.error('Preencha o Token e o Instance ID');
-      return;
+  const fetchQrCode = async () => {
+    setQrLoading(true);
+    setQrError('');
+    try {
+      const res = await fetch('/api/whatsapp/qr-code');
+      const data = await res.json();
+      if (data.connected) {
+        setConnected(true);
+        setQrBase64(null);
+      } else if (data.qrCodeBase64) {
+        setQrBase64(data.qrCodeBase64);
+        setConnected(false);
+      } else {
+        setQrError(data.error || 'Não foi possível gerar o QR Code');
+      }
+    } catch {
+      setQrError('Erro ao buscar QR Code');
+    } finally {
+      setQrLoading(false);
     }
+  };
+
+  // Auto-poll for QR code and connection status
+  useEffect(() => {
+    fetchQrCode();
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/whatsapp/status');
+        const data = await res.json();
+        if (data.connected && data.phone) {
+          setConnected(true);
+          setConnectedPhone(data.phone);
+          setQrBase64(null);
+          if (polling) { clearInterval(polling); setPolling(null); }
+        } else if (!data.connected && !qrBase64 && !qrLoading) {
+          fetchQrCode();
+        }
+      } catch {}
+    }, 5000);
+    setPolling(interval);
+    return () => { clearInterval(interval); };
+  }, []);
+
+  const handleComplete = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const configData: UserConfig = {
-        whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
-        whatsappApiToken,
-        whatsappInstanceName,
-        whatsappClientToken: whatsappClientToken || undefined,
-        setupCompleted: true,
-      };
       const res = await fetch('/api/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, ...configData }),
+        body: JSON.stringify({ userId: user.id }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setConfig(configData);
-      toast.success('Z-API configurada com sucesso! Mensagens serão enviadas via WhatsApp. 🎉');
+      setConfig({ setupCompleted: true });
+      toast.success(connected ? `WhatsApp conectado (${connectedPhone})! 🎉` : 'Setup completo! Conecte o WhatsApp nas Configurações.');
       setView('dashboard');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -549,13 +581,12 @@ function OnboardingPage() {
   const handleSkip = () => {
     if (!user) return;
     setConfig({ setupCompleted: false });
-    toast.info('Configure a Z-API depois em Configurações para enviar mensagens reais.');
+    toast.info('Conecte seu WhatsApp depois em Configurações para enviar mensagens reais.');
     setView('dashboard');
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-burgundy-50 via-background to-rose-pastel-light">
-      {/* Header */}
       <header className="glass-burgundy">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -563,58 +594,78 @@ function OnboardingPage() {
             <span className="font-bold text-gradient-burgundy">WhatsRomance</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleSkip} className="text-graphite-muted">
-            Pular Configuração <ChevronRight className="w-4 h-4 ml-1" />
+            Pular <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4 py-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-lg">
           <Card className="shadow-xl border-burgundy/10">
-            <CardHeader>
-              <div className="flex items-center gap-3">
+            <CardHeader className="text-center">
+              <div className="flex items-center justify-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center"><MessageCircle className="w-5 h-5 text-green-600" /></div>
-                <div>
-                  <CardTitle>Conectar Z-API (WhatsApp)</CardTitle>
-                  <CardDescription>Configure seu gateway para enviar mensagens reais</CardDescription>
+                <div className="text-left">
+                  <CardTitle>Conectar WhatsApp</CardTitle>
+                  <CardDescription>Escaneie o QR Code para enviar mensagens reais</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-rose-pastel-light rounded-lg p-4 text-sm text-graphite space-y-2">
-                <p className="font-medium text-graphite flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Onde encontrar suas credenciais:</p>
-                <ol className="list-decimal list-inside space-y-1 text-graphite-muted">
-                  <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
-                  <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
-                  <li>Copie a URL completa de envio que fica no formato:<br /><code className="text-xs bg-burgundy/10 px-1.5 py-0.5 rounded break-all">https://api.z-api.io/instances/<strong>{'{INSTANCE_ID}'}</strong>/token/<strong>{'{TOKEN}'}</strong>/send-text</code></li>
-                  <li>Cole o <strong>Instance ID</strong>, <strong>Token</strong> e <strong>Client-Token</strong> nos campos abaixo.</li>
-                </ol>
-              </div>
-              <div>
-                <Label>API URL</Label>
-                <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1.5" />
-                <p className="text-xs text-graphite-muted mt-1">Padrão: https://api.z-api.io</p>
-              </div>
-              <div>
-                <Label>Instance ID</Label>
-                <Input placeholder="3F5217F0ED99C172B0886272DDAD8C6F" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1.5" />
-              </div>
-              <div>
-                <Label>API Token</Label>
-                <Input placeholder="A5952CF5C5A11E0654F91542" type="password" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
-              </div>
-              <div>
-                <Label>Client-Token <span className="text-xs text-graphite-muted font-normal">(Segurança da conta)</span></Label>
-                <Input placeholder="Opcional — configurado em Security no painel Z-API" type="password" value={whatsappClientToken} onChange={(e) => setWhatsappClientToken(e.target.value)} className="mt-1.5" />
-                <p className="text-xs text-graphite-muted mt-1">Acesse <a href="https://panel.z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline">panel.z-api.io</a> → Segurança → Token de Segurança da Conta</p>
-              </div>
+            <CardContent className="space-y-5">
+              {connected ? (
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-semibold text-graphite text-lg">WhatsApp Conectado!</p>
+                    <p className="text-sm text-graphite-muted mt-1">📱 {connectedPhone}</p>
+                  </div>
+                  <Button onClick={handleComplete} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white w-full max-w-xs">
+                    {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Continuar</>}
+                  </Button>
+                </div>
+              ) : qrLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 className="w-10 h-10 text-burgundy animate-spin" />
+                  <p className="text-sm text-graphite-muted">Gerando QR Code...</p>
+                </div>
+              ) : qrBase64 ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="p-3 bg-white rounded-xl border border-burgundy/10 shadow-sm">
+                    <img src={`data:image/png;base64,${qrBase64}`} alt="QR Code WhatsApp" className="w-64 h-64" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-sm text-graphite-muted">1. Abra o <strong>WhatsApp</strong> no celular</p>
+                    <p className="text-sm text-graphite-muted">2. Vá em <strong>Dispositivos conectados → Conectar</strong></p>
+                    <p className="text-sm text-graphite-muted">3. Aponte a câmera para o QR Code</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={fetchQrCode}>
+                    <RefreshCw className="w-4 h-4 mr-1.5" /> Gerar novo QR Code
+                  </Button>
+                  <div className="w-full flex gap-3 pt-2">
+                    <Button variant="ghost" onClick={handleSkip} className="flex-1">Pular</Button>
+                    <Button onClick={handleComplete} disabled={loading} className="flex-1 bg-burgundy hover:bg-burgundy-dark text-white">
+                      {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : 'Continuar'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
+                    <QrCode className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-graphite">QR Code indisponível</p>
+                    <p className="text-sm text-graphite-muted mt-1">Clique abaixo para tentar gerar novamente</p>
+                  </div>
+                  <div className="flex gap-3 justify-center">
+                    <Button variant="ghost" onClick={handleSkip}>Pular</Button>
+                    <Button variant="outline" onClick={fetchQrCode}><RefreshCw className="w-4 h-4 mr-1.5" /> Tentar Novamente</Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="ghost" onClick={() => setView('landing')}><ChevronLeft className="w-4 h-4 mr-1" /> Voltar</Button>
-              <Button onClick={handleSave} disabled={loading} className="bg-burgundy hover:bg-burgundy-dark text-white">
-                {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar e Continuar</>}
-              </Button>
-            </CardFooter>
           </Card>
         </motion.div>
       </main>
@@ -647,7 +698,7 @@ function Dashboard() {
       setContacts(cData.error ? [] : cData);
       setSchedules(sData.error ? [] : sData);
       setHistory(hData.error ? [] : hData);
-      // Sync config from DB (includes Z-API credentials)
+      // Sync config from DB
       if (cfgData && !cfgData.error && cfgData.setupCompleted) {
         setConfig(cfgData);
       }
@@ -1541,77 +1592,37 @@ function SettingsTab({ userId }: { userId: string }) {
   const { user, config, setConfig } = useAppStore();
   const [testing, setTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{
-    configured: boolean;
     connected?: boolean;
-    phone?: string;
-    battery?: number;
-    pushName?: string;
-    error?: string;
+    phone?: string | null;
+    pushName?: string | null;
+    battery?: number | null;
+    error?: string | null;
+    hasQrCode?: boolean;
   } | null>(null);
-  const [showEditConfig, setShowEditConfig] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [qrError, setQrError] = useState('');
-  const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || 'https://api.z-api.io');
-  const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
-  const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
-  const [whatsappClientToken, setWhatsappClientToken] = useState(config?.whatsappClientToken || '');
-  const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  // Sync local state when config loads from DB
+  // Fetch status on mount
   useEffect(() => {
-    if (config?.whatsappApiUrl) setWhatsappApiUrl(config.whatsappApiUrl);
-    if (config?.whatsappApiToken) setWhatsappApiToken(config.whatsappApiToken);
-    if (config?.whatsappInstanceName) setWhatsappInstanceName(config.whatsappInstanceName);
-    if (config?.whatsappClientToken) setWhatsappClientToken(config.whatsappClientToken);
-  }, [config]);
+    testConnection();
+  }, []);
 
   const testConnection = async () => {
     setTesting(true);
-    setConnectionStatus(null);
     try {
-      const res = await fetch(`/api/whatsapp/status?userId=${userId}`);
+      const res = await fetch('/api/whatsapp/status');
       const data = await res.json();
       setConnectionStatus(data);
       if (data.connected) {
         toast.success(`WhatsApp conectado! Número: ${data.phone} 📱✅`);
-      } else if (data.configured === false) {
-        toast.error('Z-API não configurada. Preencha as credenciais primeiro.');
-      } else {
-        toast.error(`Conexão falhou: ${data.error || 'Verifique as credenciais'}`);
       }
     } catch {
-      toast.error('Erro ao testar conexão com Z-API');
+      toast.error('Erro ao verificar status do WhatsApp');
     } finally {
       setTesting(false);
-    }
-  };
-
-  const handleSaveConfig = async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
-          whatsappApiToken,
-          whatsappInstanceName,
-          whatsappClientToken: whatsappClientToken || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setConfig({ whatsappApiUrl, whatsappApiToken, whatsappInstanceName, whatsappClientToken: whatsappClientToken || undefined, setupCompleted: true });
-      toast.success('Configurações Z-API atualizadas! 🎉');
-      setShowEditConfig(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -1620,12 +1631,16 @@ function SettingsTab({ userId }: { userId: string }) {
     setQrBase64(null);
     setQrError('');
     try {
-      const res = await fetch(`/api/whatsapp/qr-code?userId=${userId}`);
+      const res = await fetch('/api/whatsapp/qr-code');
       const data = await res.json();
-      if (data.qrCodeBase64) {
+      if (data.connected) {
+        setQrBase64(null);
+        toast.success('WhatsApp já está conectado! ✅');
+        testConnection();
+      } else if (data.qrCodeBase64) {
         setQrBase64(data.qrCodeBase64);
       } else {
-        setQrError(data.error || 'Não foi possível gerar o QR Code. Verifique suas credenciais ou crie uma nova instância no painel Z-API.');
+        setQrError(data.error || 'Não foi possível gerar o QR Code');
       }
     } catch {
       setQrError('Erro ao buscar QR Code');
@@ -1634,12 +1649,30 @@ function SettingsTab({ userId }: { userId: string }) {
     }
   };
 
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const res = await fetch('/api/whatsapp/logout', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Sessão encerrada. Escaneie um novo QR Code.');
+        setConnectionStatus({ connected: false, error: 'Sessão encerrada' });
+      } else {
+        toast.error(data.error || 'Erro ao desconectar');
+      }
+    } catch {
+      toast.error('Erro ao desconectar');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const openQrDialog = () => {
     setShowQrDialog(true);
     fetchQrCode();
   };
 
-  const isZapiConfigured = !!(config?.whatsappApiToken && config?.whatsappInstanceName);
+  const isWaConnected = !!connectionStatus?.connected;
 
   return (
     <div className="space-y-6">
@@ -1653,8 +1686,8 @@ function SettingsTab({ userId }: { userId: string }) {
         </Card>
         <Card className="border-burgundy/10">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{isZapiConfigured ? '✅' : '⏳'}</p>
-            <p className="text-xs text-graphite-muted mt-1">Z-API</p>
+            <p className="text-2xl font-bold">{isWaConnected ? '✅' : '⏳'}</p>
+            <p className="text-xs text-graphite-muted mt-1">WhatsApp</p>
           </CardContent>
         </Card>
         <Card className="border-burgundy/10 col-span-2 sm:col-span-1">
@@ -1665,91 +1698,78 @@ function SettingsTab({ userId }: { userId: string }) {
         </Card>
       </div>
 
-      {/* Z-API Status Card */}
+      {/* WhatsApp Connection Card */}
       <Card className="border-burgundy/10">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> Z-API (WhatsApp)</CardTitle>
-            <CardDescription>Status da conexão com seu WhatsApp</CardDescription>
+            <CardTitle className="flex items-center gap-2"><MessageCircle className="w-5 h-5 text-burgundy" /> WhatsApp (Baileys)</CardTitle>
+            <CardDescription>Status da conexão direta com seu WhatsApp</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={testConnection} disabled={testing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
               {testing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-1.5" /> Testar</>}
             </Button>
-            {isZapiConfigured && (
+            {!isWaConnected && (
               <Button size="sm" onClick={openQrDialog} className="bg-green-600 hover:bg-green-700 text-white">
-                <QrCode className="w-4 h-4 mr-1.5" /> Reconectar
+                <QrCode className="w-4 h-4 mr-1.5" /> Conectar
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setShowEditConfig(true)} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
-              <RefreshCw className="w-4 h-4 mr-1.5" /> Editar
-            </Button>
+            {isWaConnected && (
+              <Button variant="outline" size="sm" onClick={handleLogout} disabled={loggingOut} className="border-red-300 text-red-600 hover:bg-red-50">
+                {loggingOut ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Desconectando...</> : <><LogOut className="w-4 h-4 mr-1.5" /> Desconectar</>}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {[
-            { label: 'API URL', value: config?.whatsappApiUrl, icon: MessageCircle },
-            { label: 'Instance ID', value: config?.whatsappInstanceName, icon: Phone },
-            { label: 'Token', value: config?.whatsappApiToken ? '••••••••••••' : undefined, icon: Lock },
-          ].map((f) => (
-            <div key={f.label} className="flex items-center justify-between py-2.5 border-b border-burgundy/5 last:border-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-burgundy/10 flex items-center justify-center shrink-0">
-                  <f.icon className="w-4 h-4 text-burgundy" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-graphite">{f.label}</p>
-                  <p className="text-xs text-graphite-muted truncate max-w-[280px]">{f.value || 'Não configurado'}</p>
-                </div>
-              </div>
-              <Badge variant={f.value ? 'default' : 'secondary'} className={f.value ? 'bg-green-100 text-green-700 border-green-200' : ''}>
-                {f.value ? 'Ativo' : 'Pendente'}
-              </Badge>
-            </div>
-          ))}
-
           {connectionStatus && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-lg border mt-3 ${
+              className={`p-4 rounded-lg border ${
                 connectionStatus.connected
                   ? 'bg-green-50 border-green-200'
-                  : connectionStatus.configured === false
-                    ? 'bg-amber-50 border-amber-200'
-                    : 'bg-red-50 border-red-200'
+                  : 'bg-red-50 border-red-200'
               }`}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-3 h-3 rounded-full ${connectionStatus.connected ? 'bg-green-500' : 'bg-red-500'}`} />
                 <span className="font-semibold text-sm">
-                  {connectionStatus.connected ? 'Conectado' : connectionStatus.configured === false ? 'Não Configurado' : 'Desconectado'}
+                  {connectionStatus.connected ? 'Conectado' : 'Desconectado'}
                 </span>
               </div>
               {connectionStatus.connected && (
                 <div className="text-sm text-graphite-muted space-y-1">
                   <p>📱 Número: <strong>{connectionStatus.phone}</strong></p>
-                  {connectionStatus.pushName && <p>👤 Push Name: <strong>{connectionStatus.pushName}</strong></p>}
-                  {connectionStatus.battery !== undefined && <p>🔋 Bateria: <strong>{connectionStatus.battery}%</strong></p>}
+                  {connectionStatus.pushName && <p>👤 Nome: <strong>{connectionStatus.pushName}</strong></p>}
                 </div>
               )}
               {!connectionStatus.connected && connectionStatus.error && (
                 <p className="text-sm text-red-600">{connectionStatus.error}</p>
               )}
+              {!connectionStatus.connected && !connectionStatus.error && (
+                <p className="text-sm text-graphite-muted">Clique em <strong>Conectar</strong> para escanear o QR Code e parear seu WhatsApp.</p>
+              )}
             </motion.div>
           )}
+
+          <div className="bg-rose-pastel-light/50 rounded-lg p-3 text-xs text-graphite-muted space-y-1">
+            <p className="font-medium text-graphite text-sm flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Sobre a integração</p>
+            <p>Utilizamos <strong>Baileys</strong> (open-source) para conectar diretamente ao WhatsApp Web. Nenhuma credencial externa é necessária — basta escanear o QR Code.</p>
+            <p>A conexão é persistente e se reconecta automaticamente caso caia.</p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* QR Code Reconnect Dialog */}
+      {/* QR Code Connect Dialog */}
       <Dialog open={showQrDialog} onOpenChange={(v) => { if (!v) { setQrBase64(null); setQrError(''); } setShowQrDialog(v); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <QrCode className="w-5 h-5 text-green-600" />
-              Reconectar WhatsApp
+              Conectar WhatsApp
             </DialogTitle>
-            <DialogDescription>Escaneie o QR Code com o WhatsApp do celular para reconectar</DialogDescription>
+            <DialogDescription>Escaneie o QR Code com o WhatsApp do celular</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {qrLoading ? (
@@ -1763,7 +1783,7 @@ function SettingsTab({ userId }: { userId: string }) {
                   <img src={`data:image/png;base64,${qrBase64}`} alt="QR Code WhatsApp" className="w-64 h-64" />
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="text-sm text-graphite-muted">1. Abra o WhatsApp no celular</p>
+                  <p className="text-sm text-graphite-muted">1. Abra o <strong>WhatsApp</strong> no celular</p>
                   <p className="text-sm text-graphite-muted">2. Vá em <strong>Dispositivos conectados → Conectar</strong></p>
                   <p className="text-sm text-graphite-muted">3. Aponte a câmera para o QR Code</p>
                 </div>
@@ -1778,66 +1798,14 @@ function SettingsTab({ userId }: { userId: string }) {
                 </div>
                 <div>
                   <p className="font-medium text-graphite mb-1">Não foi possível gerar o QR Code</p>
-                  <p className="text-sm text-graphite-muted max-w-sm mx-auto">{qrError || 'Sua instância Z-API pode ter expirado. Crie uma nova instância no painel e atualize as credenciais.'}</p>
+                  <p className="text-sm text-graphite-muted max-w-sm mx-auto">{qrError || 'Aguarde um momento e tente novamente.'}</p>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 space-y-1">
-                  <p className="font-medium">Como resolver:</p>
-                  <p>1. Acesse <a href="https://panel.z-api.io/" target="_blank" rel="noopener noreferrer" className="underline font-medium">panel.z-api.io</a></p>
-                  <p>2. Crie uma nova instância ou reative a existente</p>
-                  <p>3. Copie o novo <strong>Instance ID</strong> e <strong>Token</strong></p>
-                  <p>4. Atualize aqui em <strong>Configurações → Editar</strong></p>
-                </div>
-                <div className="flex gap-2 justify-center">
-                  <Button variant="outline" onClick={() => { setShowQrDialog(false); setShowEditConfig(true); }}>
-                    Atualizar Credenciais
-                  </Button>
-                  <Button variant="outline" onClick={fetchQrCode}>
-                    <RefreshCw className="w-4 h-4 mr-1.5" /> Tentar Novamente
-                  </Button>
-                </div>
+                <Button variant="outline" onClick={fetchQrCode}>
+                  <RefreshCw className="w-4 h-4 mr-1.5" /> Tentar Novamente
+                </Button>
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Z-API Config Dialog */}
-      <Dialog open={showEditConfig} onOpenChange={setShowEditConfig}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Configurar Z-API</DialogTitle>
-            <DialogDescription>Atualize suas credenciais do gateway WhatsApp</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
-            <div className="bg-green-50 rounded-lg p-3 text-sm">
-              <p className="font-medium text-graphite flex items-center gap-1.5 mb-2"><MessageCircle className="w-4 h-4 text-green-600" /> Credenciais Z-API</p>
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs">API URL</Label>
-                  <Input placeholder="https://api.z-api.io" value={whatsappApiUrl} onChange={(e) => setWhatsappApiUrl(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Instance ID</Label>
-                  <Input placeholder="3F5217F0ED99C172B0886272DDAD8C6F" value={whatsappInstanceName} onChange={(e) => setWhatsappInstanceName(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">API Token</Label>
-                  <Input type="password" placeholder="A5952CF5C5A11E0654F91542" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Client-Token <span className="text-graphite-muted font-normal">(Segurança)</span></Label>
-                  <Input type="password" placeholder="Configurado em Security no painel Z-API" value={whatsappClientToken} onChange={(e) => setWhatsappClientToken(e.target.value)} className="mt-1" />
-                  <p className="text-xs text-graphite-muted mt-1"><a href="https://panel.z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline">panel.z-api.io</a> → Segurança → Token de Segurança</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditConfig(false)}>Cancelar</Button>
-            <Button onClick={handleSaveConfig} disabled={saving} className="bg-burgundy hover:bg-burgundy-dark text-white">
-              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</> : <><Check className="w-4 h-4 mr-2" /> Salvar</>}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

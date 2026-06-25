@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { sendTextMessage } from '@/lib/zapi';
+import { sendTextMessage } from '@/lib/whatsapp';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,36 +30,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Try real Z-API send ──
-    let zapiResult = null;
+    // ── Send via Baileys WhatsApp service ──
     let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent';
     let statusDetail = '';
+    let messageId: string | undefined;
 
-    const config = await db.userConfig.findUnique({ where: { userId } });
+    const waResult = await sendTextMessage(phoneNumber, message);
 
-    if (config?.whatsappApiUrl && config?.whatsappApiToken && config?.whatsappInstanceName) {
-      zapiResult = await sendTextMessage(
-        {
-          baseUrl: config.whatsappApiUrl,
-          apiToken: config.whatsappApiToken,
-          instanceId: config.whatsappInstanceName,
-          clientToken: config.whatsappClientToken || undefined,
-        },
-        phoneNumber,
-        message,
-      );
-
-      if (zapiResult.success) {
-        deliveryStatus = 'delivered';
-        statusDetail = `Z-API messageId: ${zapiResult.messageId || 'N/A'}`;
-      } else {
-        deliveryStatus = 'failed';
-        statusDetail = zapiResult.error || 'Erro desconhecido na Z-API';
-      }
+    if (waResult.success) {
+      deliveryStatus = 'delivered';
+      messageId = waResult.messageId;
+      statusDetail = `WhatsApp messageId: ${messageId || 'N/A'}`;
     } else {
-      // No Z-API configured → simulate (demo mode)
-      deliveryStatus = 'sent';
-      statusDetail = 'Modo demonstração (Z-API não configurada)';
+      deliveryStatus = 'failed';
+      statusDetail = waResult.error || 'Erro ao enviar via WhatsApp';
     }
 
     // Save to message history
@@ -91,25 +75,15 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Mensagem entregue via WhatsApp! 💕',
         history,
-        zapi: { messageId: zapiResult?.messageId, zapId: zapiResult?.zapId },
+        wa: { messageId },
       });
     }
 
-    if (deliveryStatus === 'failed') {
-      return NextResponse.json({
-        success: false,
-        message: `Falha ao enviar via Z-API: ${statusDetail}`,
-        history,
-        error: statusDetail,
-      });
-    }
-
-    // Demo mode
     return NextResponse.json({
-      success: true,
-      message: 'Mensagem enviada (modo demonstração) 💕',
+      success: false,
+      message: `Falha ao enviar: ${statusDetail}`,
       history,
-      demo: true,
+      error: statusDetail,
     });
   } catch (error) {
     console.error('Message send error:', error);

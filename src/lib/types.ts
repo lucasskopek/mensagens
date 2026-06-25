@@ -12,14 +12,6 @@ export interface User {
 
 export interface UserConfig {
   id?: string;
-  supabaseUrl?: string;
-  supabaseKey?: string;
-  vercelToken?: string;
-  vercelProjectId?: string;
-  whatsappApiUrl?: string;
-  whatsappApiToken?: string;
-  whatsappInstanceName?: string;
-  whatsappClientToken?: string;
   setupCompleted: boolean;
 }
 

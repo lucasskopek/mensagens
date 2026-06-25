@@ -25,19 +25,11 @@ model User {
 }
 
 model UserConfig {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  supabaseUrl   String?
-  supabaseKey   String?
-  vercelToken   String?
-  vercelProjectId String?
-  whatsappApiUrl String?
-  whatsappApiToken String?
-  whatsappInstanceName String?
-  whatsappClientToken String?
-  setupCompleted Boolean @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  setupCompleted  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
