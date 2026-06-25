@@ -51,12 +51,12 @@ model Schedule {
   id            String   @id @default(cuid())
   userId        String
   contactId     String
-  messageStyles String   // JSON array of styles: romantic,spicy,playful,serious
+  messageStyles String
   timesPerDay   Int      @default(1)
-  sendTimes     String   // JSON array of times: ["08:00","14:00","20:00"]
-  recurring     Boolean  @default(true)  // true = 365 dias/ano, false = datas especificas
-  selectedDates String   @default("[]") // JSON array of dates: ["2025-01-15","2025-02-14"]
-  executionLog  String   @default("[]") // JSON array of executed slots: ["2025-01-15|08:00", ...]
+  sendTimes     String
+  recurring     Boolean  @default(true)
+  selectedDates String   @default("[]")
+  executionLog  String   @default("[]")
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -73,7 +73,7 @@ model MessageHistory {
   phoneNumber String
   message     String
   style       String
-  status      String   @default("pending") // pending, sent, delivered, failed
+  status      String   @default("pending")
   sentAt      DateTime @default(now())
   deliveredAt DateTime?
 

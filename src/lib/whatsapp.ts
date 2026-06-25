@@ -1,18 +1,34 @@
 /**
  * WhatsApp Integration via Baileys Mini-Service
  *
- * The actual WhatsApp connection is managed by the Baileys mini-service
- * running on port 3004. This module provides typed functions that the
- * Next.js API routes call directly to the service.
+ * The actual WhatsApp connection is managed by the Baileys mini-service.
+ * This module provides typed functions that Next.js API routes call.
  *
- * Mini-service endpoints (direct access from server):
- *   GET  http://127.0.0.1:3004/status
- *   GET  http://127.0.0.1:3004/qr-code
- *   POST http://127.0.0.1:3004/send-text
- *   POST http://127.0.0.1:3004/logout
+ * Configure WA_SERVICE_URL env var to point to your Baileys service.
+ * - Local dev:  http://127.0.0.1:3004
+ * - Production: https://your-baileys-server.com
+ *
+ * Mini-service endpoints:
+ *   GET  {WA_SERVICE_URL}/status
+ *   GET  {WA_SERVICE_URL}/qr-code
+ *   POST {WA_SERVICE_URL}/send-text
+ *   POST {WA_SERVICE_URL}/logout
  */
 
-const WA_SERVICE_BASE = 'http://127.0.0.1:3004';
+const WA_SERVICE_BASE = process.env.WA_SERVICE_URL || 'http://127.0.0.1:3004';
+
+/**
+ * Whether the WhatsApp service is available.
+ * - In production (Vercel): requires WA_SERVICE_URL to be explicitly set.
+ * - In development: assumes the local Baileys service on port 3004 is available.
+ */
+export function isWaServiceConfigured(): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return !!process.env.WA_SERVICE_URL;
+  }
+  // Development: always try the local service
+  return true;
+}
 
 export interface WaSendResult {
   success: boolean;

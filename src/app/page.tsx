@@ -520,6 +520,10 @@ function OnboardingPage() {
     try {
       const res = await fetch('/api/whatsapp/qr-code');
       const data = await res.json();
+      if (data.serviceUnavailable) {
+        setQrError('Serviço WhatsApp não configurado neste ambiente. Você pode conectar depois nas Configurações.');
+        return;
+      }
       if (data.connected) {
         setConnected(true);
         setQrBase64(null);
@@ -548,6 +552,10 @@ function OnboardingPage() {
           setConnectedPhone(data.phone);
           setQrBase64(null);
           if (polling) { clearInterval(polling); setPolling(null); }
+        } else if (!data.configured || data.serviceUnavailable) {
+          // Service not configured, stop polling
+          if (polling) { clearInterval(polling); setPolling(null); }
+          setQrError('Serviço WhatsApp não configurado neste ambiente. Conecte depois nas Configurações.');
         } else if (!data.connected && !qrBase64 && !qrLoading) {
           fetchQrCode();
         }
@@ -1592,12 +1600,14 @@ function SettingsTab({ userId }: { userId: string }) {
   const { user, config, setConfig } = useAppStore();
   const [testing, setTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{
+    configured?: boolean;
     connected?: boolean;
     phone?: string | null;
     pushName?: string | null;
     battery?: number | null;
     error?: string | null;
     hasQrCode?: boolean;
+    serviceUnavailable?: boolean;
   } | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
@@ -1618,6 +1628,8 @@ function SettingsTab({ userId }: { userId: string }) {
       setConnectionStatus(data);
       if (data.connected) {
         toast.success(`WhatsApp conectado! Número: ${data.phone} 📱✅`);
+      } else if (data.serviceUnavailable || !data.configured) {
+        toast.info('Serviço WhatsApp não configurado neste ambiente.');
       }
     } catch {
       toast.error('Erro ao verificar status do WhatsApp');
@@ -1673,6 +1685,7 @@ function SettingsTab({ userId }: { userId: string }) {
   };
 
   const isWaConnected = !!connectionStatus?.connected;
+  const isWaServiceUnavailable = !connectionStatus?.configured || !!connectionStatus?.serviceUnavailable;
 
   return (
     <div className="space-y-6">
@@ -1709,7 +1722,7 @@ function SettingsTab({ userId }: { userId: string }) {
             <Button variant="outline" size="sm" onClick={testConnection} disabled={testing} className="border-burgundy/30 text-burgundy hover:bg-burgundy-50">
               {testing ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Verificando...</> : <><Send className="w-4 h-4 mr-1.5" /> Testar</>}
             </Button>
-            {!isWaConnected && (
+            {!isWaConnected && !isWaServiceUnavailable && (
               <Button size="sm" onClick={openQrDialog} className="bg-green-600 hover:bg-green-700 text-white">
                 <QrCode className="w-4 h-4 mr-1.5" /> Conectar
               </Button>
@@ -1747,7 +1760,14 @@ function SettingsTab({ userId }: { userId: string }) {
               {!connectionStatus.connected && connectionStatus.error && (
                 <p className="text-sm text-red-600">{connectionStatus.error}</p>
               )}
-              {!connectionStatus.connected && !connectionStatus.error && (
+              {!connectionStatus.connected && isWaServiceUnavailable && (
+                <div className="text-sm text-amber-600 space-y-1">
+                  <p><strong>Serviço WhatsApp não configurado</strong></p>
+                  <p>Defina a variável de ambiente <code className="bg-amber-50 px-1 rounded text-xs">WA_SERVICE_URL</code> apontando para seu servidor Baileys.</p>
+                  <p className="text-xs text-graphite-muted">O serviço Baileys roda separadamente (não no Vercel). Veja a documentação em <code>mini-services/whatsapp/</code>.</p>
+                </div>
+              )}
+              {!connectionStatus.connected && !isWaServiceUnavailable && !connectionStatus.error && (
                 <p className="text-sm text-graphite-muted">Clique em <strong>Conectar</strong> para escanear o QR Code e parear seu WhatsApp.</p>
               )}
             </motion.div>
@@ -1757,6 +1777,9 @@ function SettingsTab({ userId }: { userId: string }) {
             <p className="font-medium text-graphite text-sm flex items-center gap-1.5"><Info className="w-4 h-4 text-burgundy" /> Sobre a integração</p>
             <p>Utilizamos <strong>Baileys</strong> (open-source) para conectar diretamente ao WhatsApp Web. Nenhuma credencial externa é necessária — basta escanear o QR Code.</p>
             <p>A conexão é persistente e se reconecta automaticamente caso caia.</p>
+            {isWaServiceUnavailable && (
+              <p className="text-amber-700 font-medium mt-1">⚠️ Neste ambiente, o serviço Baileys precisa rodar em um servidor separado (VPS). Configure <code>WA_SERVICE_URL</code> nas variáveis de ambiente.</p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server';
-import { getQrCode } from '@/lib/whatsapp';
+import { getQrCode, isWaServiceConfigured } from '@/lib/whatsapp';
 
 export async function GET() {
+  const configured = isWaServiceConfigured();
+
+  if (!configured) {
+    return NextResponse.json({
+      qrCodeBase64: null,
+      connected: false,
+      error: 'Serviço WhatsApp não configurado. Defina a variável WA_SERVICE_URL no ambiente de deploy.',
+      serviceUnavailable: true,
+    });
+  }
+
   try {
     const result = await getQrCode();
 
@@ -17,7 +28,11 @@ export async function GET() {
   } catch (error) {
     console.error('QR Code error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erro ao buscar QR Code' },
+      {
+        qrCodeBase64: null,
+        connected: false,
+        error: error instanceof Error ? error.message : 'Erro ao buscar QR Code',
+      },
       { status: 500 },
     );
   }
