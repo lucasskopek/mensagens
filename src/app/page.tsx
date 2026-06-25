@@ -512,6 +512,7 @@ function OnboardingPage() {
   const [whatsappApiUrl, setWhatsappApiUrl] = useState('https://api.z-api.io');
   const [whatsappApiToken, setWhatsappApiToken] = useState('');
   const [whatsappInstanceName, setWhatsappInstanceName] = useState('');
+  const [whatsappClientToken, setWhatsappClientToken] = useState('');
 
   const handleSave = async () => {
     if (!user) return;
@@ -525,6 +526,7 @@ function OnboardingPage() {
         whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
         whatsappApiToken,
         whatsappInstanceName,
+        whatsappClientToken: whatsappClientToken || undefined,
         setupCompleted: true,
       };
       const res = await fetch('/api/onboarding', {
@@ -585,7 +587,7 @@ function OnboardingPage() {
                   <li>Acesse o painel do <strong>Z-API</strong> (<a href="https://z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline hover:text-burgundy-dark">z-api.io</a>).</li>
                   <li>Crie ou selecione uma <strong>Instância</strong> ativa e faça a leitura do QR Code com o seu WhatsApp.</li>
                   <li>Copie a URL completa de envio que fica no formato:<br /><code className="text-xs bg-burgundy/10 px-1.5 py-0.5 rounded break-all">https://api.z-api.io/instances/<strong>{'{INSTANCE_ID}'}</strong>/token/<strong>{'{TOKEN}'}</strong>/send-text</code></li>
-                  <li>Cole o <strong>Instance ID</strong> e o <strong>Token</strong> nos campos abaixo.</li>
+                  <li>Cole o <strong>Instance ID</strong>, <strong>Token</strong> e <strong>Client-Token</strong> nos campos abaixo.</li>
                 </ol>
               </div>
               <div>
@@ -600,6 +602,11 @@ function OnboardingPage() {
               <div>
                 <Label>API Token</Label>
                 <Input placeholder="A5952CF5C5A11E0654F91542" type="password" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1.5" />
+              </div>
+              <div>
+                <Label>Client-Token <span className="text-xs text-graphite-muted font-normal">(Segurança da conta)</span></Label>
+                <Input placeholder="Opcional — configurado em Security no painel Z-API" type="password" value={whatsappClientToken} onChange={(e) => setWhatsappClientToken(e.target.value)} className="mt-1.5" />
+                <p className="text-xs text-graphite-muted mt-1">Acesse <a href="https://panel.z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline">panel.z-api.io</a> → Segurança → Token de Segurança da Conta</p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
@@ -1549,6 +1556,7 @@ function SettingsTab({ userId }: { userId: string }) {
   const [whatsappApiUrl, setWhatsappApiUrl] = useState(config?.whatsappApiUrl || 'https://api.z-api.io');
   const [whatsappApiToken, setWhatsappApiToken] = useState(config?.whatsappApiToken || '');
   const [whatsappInstanceName, setWhatsappInstanceName] = useState(config?.whatsappInstanceName || '');
+  const [whatsappClientToken, setWhatsappClientToken] = useState(config?.whatsappClientToken || '');
   const [saving, setSaving] = useState(false);
 
   // Sync local state when config loads from DB
@@ -1556,6 +1564,7 @@ function SettingsTab({ userId }: { userId: string }) {
     if (config?.whatsappApiUrl) setWhatsappApiUrl(config.whatsappApiUrl);
     if (config?.whatsappApiToken) setWhatsappApiToken(config.whatsappApiToken);
     if (config?.whatsappInstanceName) setWhatsappInstanceName(config.whatsappInstanceName);
+    if (config?.whatsappClientToken) setWhatsappClientToken(config.whatsappClientToken);
   }, [config]);
 
   const testConnection = async () => {
@@ -1591,11 +1600,12 @@ function SettingsTab({ userId }: { userId: string }) {
           whatsappApiUrl: whatsappApiUrl || 'https://api.z-api.io',
           whatsappApiToken,
           whatsappInstanceName,
+          whatsappClientToken: whatsappClientToken || undefined,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setConfig({ whatsappApiUrl, whatsappApiToken, whatsappInstanceName, setupCompleted: true });
+      setConfig({ whatsappApiUrl, whatsappApiToken, whatsappInstanceName, whatsappClientToken: whatsappClientToken || undefined, setupCompleted: true });
       toast.success('Configurações Z-API atualizadas! 🎉');
       setShowEditConfig(false);
     } catch (err) {
@@ -1813,6 +1823,11 @@ function SettingsTab({ userId }: { userId: string }) {
                 <div>
                   <Label className="text-xs">API Token</Label>
                   <Input type="password" placeholder="A5952CF5C5A11E0654F91542" value={whatsappApiToken} onChange={(e) => setWhatsappApiToken(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs">Client-Token <span className="text-graphite-muted font-normal">(Segurança)</span></Label>
+                  <Input type="password" placeholder="Configurado em Security no painel Z-API" value={whatsappClientToken} onChange={(e) => setWhatsappClientToken(e.target.value)} className="mt-1" />
+                  <p className="text-xs text-graphite-muted mt-1"><a href="https://panel.z-api.io" target="_blank" rel="noopener noreferrer" className="text-burgundy underline">panel.z-api.io</a> → Segurança → Token de Segurança</p>
                 </div>
               </div>
             </div>

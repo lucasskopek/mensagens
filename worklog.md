@@ -184,3 +184,42 @@ Stage Summary:
 - Key fix: orphan process technique `( cmd & ) &` for persistent background processes
 - All services stable: Next.js (port 3000), Caddy (port 81), Scheduler (port 3003)
 - Preview URL should now work through external proxy → Caddy → Next.js
+
+---
+Task ID: 3
+Agent: Sub Agent
+Task: Update Z-API routes with clientToken (whatsappClientToken field from UserConfig)
+
+Work Log:
+- Added `clientToken: config.whatsappClientToken || undefined` to ZApiConfig object in `/api/messages/send/route.ts` (sendTextMessage call)
+- Added `clientToken: config.whatsappClientToken || undefined` to ZApiConfig object in `/api/schedules/execute/route.ts` (sendTextMessage call)
+- Added `clientToken: config.whatsappClientToken || undefined` to ZApiConfig object in `/api/whatsapp/status/route.ts` (checkInstanceStatus call)
+- Refactored `/api/whatsapp/qr-code/route.ts` to use `getQrCode()` from `@/lib/zapi` instead of raw fetch, enabling automatic Client-Token header support via buildHeaders
+- Updated `/api/onboarding/route.ts` POST handler: added `whatsappClientToken` to request body destructuring and included it in both `update` and `create` branches of the upsert
+
+Stage Summary:
+- All 5 API route files now pass `clientToken` through to Z-API calls (via ZApiConfig interface)
+- The `buildHeaders()` function in zapi.ts sends `Client-Token` header when clientToken is present
+- Onboarding route accepts and persists `whatsappClientToken` to the UserConfig Prisma model
+- Pre-existing TS errors in messages/send (null initialization) and unrelated files are unchanged
+- No functional behavior change when whatsappClientToken is null/undefined (graceful no-op)
+---
+Task ID: 2
+Agent: Main Agent
+Task: Configure Z-API with Client-Token support
+
+Work Log:
+- Tested Z-API endpoint: returns {"error":"your client-token is not configured"}
+- Researched Z-API documentation: Client-Token is an account-level security token required in ALL request headers
+- Added `whatsappClientToken` field to Prisma schema (UserConfig model)
+- Rewrote `/src/lib/zapi.ts`: added `clientToken` to ZApiConfig, created `buildHeaders()` helper that adds `Client-Token` header when present, added `getQrCode()` function
+- Updated 5 API routes to pass clientToken: messages/send, schedules/execute, whatsapp/status, whatsapp/qr-code, onboarding
+- Added Client-Token field to frontend: onboarding form and Settings edit dialog
+- Updated `UserConfig` TypeScript interface with `whatsappClientToken` field
+- Verified in browser: Client-Token field visible in Settings → Edit dialog
+
+Stage Summary:
+- Z-API now requires `Client-Token` header on all requests (account security feature)
+- Code fully updated to support Client-Token
+- User needs to: go to panel.z-api.io → Security → get/configure Client-Token → enter it in the app's Settings
+- Field is optional in code (won't break if empty), but Z-API requires it since user activated the feature

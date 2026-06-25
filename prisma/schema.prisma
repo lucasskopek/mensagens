@@ -34,6 +34,7 @@ model UserConfig {
   whatsappApiUrl String?
   whatsappApiToken String?
   whatsappInstanceName String?
+  whatsappClientToken String?
   setupCompleted Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

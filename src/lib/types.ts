@@ -19,6 +19,7 @@ export interface UserConfig {
   whatsappApiUrl?: string;
   whatsappApiToken?: string;
   whatsappInstanceName?: string;
+  whatsappClientToken?: string;
   setupCompleted: boolean;
 }
 

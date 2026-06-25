@@ -4,14 +4,18 @@
  * Docs: https://docs.z-api.io/
  *
  * Endpoint pattern:
- *   POST {baseUrl}/instances/{instanceId}/token/{apiToken}/send-text
- *   GET  {baseUrl}/instances/{instanceId}/token/{apiToken}/status
+ *   POST {baseUrl}/instances/{instanceId}/token/{apiToken}/{endpoint}
+ *   Header: Client-Token: {clientToken}
+ *
+ * The Client-Token is an account-level security token configured in
+ * panel.z-api.io → Security → Account Security Token.
  */
 
 export interface ZApiConfig {
-  baseUrl: string;    // e.g. "https://api.z-api.io"
-  apiToken: string;   // e.g. "A5952CF5C5A11E0654F91542"
-  instanceId: string; // e.g. "3F5217F0ED99C172B0886272DDAD8C6F"
+  baseUrl: string;      // e.g. "https://api.z-api.io"
+  apiToken: string;     // Instance API token
+  instanceId: string;   // Instance ID
+  clientToken?: string; // Account security token (header)
 }
 
 export interface ZApiSendResult {
@@ -36,6 +40,13 @@ function buildUrl(config: ZApiConfig, endpoint: string): string {
   return `${base}/instances/${config.instanceId}/token/${config.apiToken}/${endpoint}`;
 }
 
+function buildHeaders(config: ZApiConfig, json = true): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (json) headers['Content-Type'] = 'application/json';
+  if (config.clientToken) headers['Client-Token'] = config.clientToken;
+  return headers;
+}
+
 /**
  * Send a text message via Z-API
  */
@@ -56,7 +67,7 @@ export async function sendTextMessage(
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildHeaders(config),
       body: JSON.stringify({
         phone: cleanPhone,
         message,
@@ -65,17 +76,15 @@ export async function sendTextMessage(
 
     const data = await response.json();
 
-    // Z-API returns { zaapId, id, messageId } on success
-    // or { error: true, message: "..." } on failure
-    if (data.error === true || data.error === 'true') {
+    // Z-API returns various error formats
+    if (data.error === true || data.error === 'true' || (typeof data.error === 'string' && data.error !== 'false')) {
       return {
         success: false,
-        error: data.message || data.errorDescription || 'Erro retornado pela Z-API',
+        error: data.message || data.errorDescription || String(data.error) || 'Erro retornado pela Z-API',
         raw: data,
       };
     }
 
-    // Successful responses vary but typically include an id/zaapId
     const success = response.ok;
     return {
       success,
@@ -101,21 +110,66 @@ export async function checkInstanceStatus(
   const url = buildUrl(config, 'status');
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: buildHeaders(config, false),
+    });
     const data = await response.json();
 
-    // Z-API status response format:
-    // { connected: true, session: false, smartphoneConnected: true, ... }
+    // Check for error responses
+    if (data.error) {
+      return {
+        connected: false,
+        error: typeof data.error === 'string' ? data.error : JSON.stringify(data.error),
+        raw: data,
+      };
+    }
+
     const isConnected = data.connected === true || data.smartphoneConnected === true;
 
     return {
       connected: isConnected,
+      phone: data.phone || data.number,
+      battery: data.battery,
+      pushName: data.pushName,
       raw: data,
     };
   } catch (err) {
     return {
       connected: false,
       error: err instanceof Error ? err.message : 'Falha ao verificar status',
+    };
+  }
+}
+
+/**
+ * Get QR Code for WhatsApp connection
+ */
+export async function getQrCode(
+  config: ZApiConfig,
+): Promise<{ qrCodeBase64?: string; error?: string }> {
+  const url = buildUrl(config, 'qr-code');
+
+  try {
+    const response = await fetch(url, {
+      headers: buildHeaders(config, false),
+    });
+    const data = await response.json();
+
+    if (data.error) {
+      return { error: typeof data.error === 'string' ? data.error : JSON.stringify(data.error) };
+    }
+
+    // Z-API returns the QR code as a base64 string in various formats
+    const qrCode = data.value || data.qrCode || data.base64 || data.data;
+
+    if (!qrCode) {
+      return { error: 'QR Code não retornado pela Z-API' };
+    }
+
+    return { qrCodeBase64: qrCode };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Falha ao obter QR Code',
     };
   }
 }

@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
           baseUrl: config.whatsappApiUrl,
           apiToken: config.whatsappApiToken,
           instanceId: config.whatsappInstanceName,
+          clientToken: config.whatsappClientToken || undefined,
         },
         phoneNumber,
         message,

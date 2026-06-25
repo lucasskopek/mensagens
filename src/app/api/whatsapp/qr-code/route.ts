@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getQrCode } from '@/lib/zapi';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,22 +17,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Z-API não configurada' }, { status: 400 });
     }
 
-    const base = config.whatsappApiUrl.replace(/\/+$/, '');
-    const url = `${base}/instances/${config.whatsappInstanceName}/token/${config.whatsappApiToken}/qr-code`;
+    const result = await getQrCode({
+      baseUrl: config.whatsappApiUrl,
+      apiToken: config.whatsappApiToken,
+      instanceId: config.whatsappInstanceName,
+      clientToken: config.whatsappClientToken || undefined,
+    });
 
-    const res = await fetch(url);
-    const data = await res.json();
-
-    // Z-API returns { value: "base64_image_string" } on success
-    if (data.value) {
-      return NextResponse.json({ qrCodeBase64: data.value });
+    if (result.qrCodeBase64) {
+      return NextResponse.json({ qrCodeBase64: result.qrCodeBase64 });
     }
 
-    // If already connected, qr-code may return an error or empty
     return NextResponse.json({
       qrCodeBase64: null,
-      error: data.error || data.message || 'Não foi possível gerar o QR Code',
-      raw: data,
+      error: result.error || 'Não foi possível gerar o QR Code',
     });
   } catch (error) {
     console.error('QR Code error:', error);

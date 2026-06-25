@@ -142,6 +142,7 @@ export async function GET() {
               baseUrl: config.whatsappApiUrl,
               apiToken: config.whatsappApiToken,
               instanceId: config.whatsappInstanceName,
+              clientToken: config.whatsappClientToken || undefined,
             },
             schedule.contact.phone,
             message,

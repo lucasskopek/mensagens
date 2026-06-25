@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       whatsappApiUrl,
       whatsappApiToken,
       whatsappInstanceName,
+      whatsappClientToken,
     } = body;
 
     if (!userId) {
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
         whatsappApiUrl: whatsappApiUrl || null,
         whatsappApiToken: whatsappApiToken || null,
         whatsappInstanceName: whatsappInstanceName || null,
+        whatsappClientToken: whatsappClientToken || null,
         setupCompleted: true,
       },
       create: {
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
         whatsappApiUrl: whatsappApiUrl || null,
         whatsappApiToken: whatsappApiToken || null,
         whatsappInstanceName: whatsappInstanceName || null,
+        whatsappClientToken: whatsappClientToken || null,
         setupCompleted: true,
       },
     });
