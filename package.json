@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev -p 3000 -H 127.0.0.1",
     "build": "next build && mkdir -p .next/standalone/.next/static && cp -r .next/static/* .next/standalone/.next/static/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production node .next/standalone/server.js -p 3000 -H 0.0.0.0",
